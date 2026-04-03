@@ -16,6 +16,13 @@ if [ ! -d "$REPO_PATH/.git" ]; then
   exit 1
 fi
 
+if ! git -C "$REPO_PATH" config user.name >/dev/null 2>&1; then
+  git -C "$REPO_PATH" config user.name "${GIT_USER_NAME:-AFFiNE Docker Builder}"
+fi
+if ! git -C "$REPO_PATH" config user.email >/dev/null 2>&1; then
+  git -C "$REPO_PATH" config user.email "${GIT_USER_EMAIL:-affine-docker-builder@local}"
+fi
+
 if [ ! -d "$PATCH_ROOT" ]; then
   if [ "$PATCHES_REQUIRED" = "true" ]; then
     echo "Error: patch directory not found: $PATCH_ROOT"

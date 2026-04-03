@@ -28,8 +28,10 @@ This setup is originally based on work by **Sander Sneekes**:
 ## Default repos/branches
 
 - Upstream AFFiNE source:
-  - `GIT_REPO=https://github.com/toeverything/AFFiNE.git`
-  - `GIT_TAG=canary`
+- `GIT_REPO=https://github.com/toeverything/AFFiNE.git`
+- `GIT_TAG=canary`
+- `GIT_USER_NAME=AFFiNE Docker Builder`
+- `GIT_USER_EMAIL=affine-docker-builder@local`
 - Tooling + patches source:
   - `TOOLING_REPO=https://github.com/spmp/affine-docker.git`
   - `TOOLING_REF=main`
@@ -54,6 +56,8 @@ docker build \
   -t affine:local-patched \
   --build-arg GIT_REPO=https://github.com/toeverything/AFFiNE.git \
   --build-arg GIT_TAG=canary \
+  --build-arg GIT_USER_NAME="AFFiNE Docker Builder" \
+  --build-arg GIT_USER_EMAIL="affine-docker-builder@local" \
   --build-arg TOOLING_REPO=https://github.com/spmp/affine-docker.git \
   --build-arg TOOLING_REF=main \
   --build-arg APPLY_LOCAL_PATCHES=true \

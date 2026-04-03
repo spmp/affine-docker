@@ -18,6 +18,13 @@ if [ ! -d "$REPO_PATH/.git" ]; then
   exit 1
 fi
 
+if ! git -C "$REPO_PATH" config user.name >/dev/null 2>&1; then
+  git -C "$REPO_PATH" config user.name "${GIT_USER_NAME:-AFFiNE Docker Builder}"
+fi
+if ! git -C "$REPO_PATH" config user.email >/dev/null 2>&1; then
+  git -C "$REPO_PATH" config user.email "${GIT_USER_EMAIL:-affine-docker-builder@local}"
+fi
+
 if ! git -C "$REPO_PATH" rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
   echo "Error: base ref not found: $BASE_REF"
   exit 1

@@ -7,6 +7,8 @@ FROM node:22-bookworm-slim AS builder
 # Build arguments
 ARG GIT_REPO=https://github.com/toeverything/AFFiNE.git
 ARG GIT_TAG=canary
+ARG GIT_USER_NAME=AFFiNE Docker Builder
+ARG GIT_USER_EMAIL=affine-docker-builder@local
 ARG TOOLING_REPO=https://github.com/spmp/affine-docker.git
 ARG TOOLING_REF=main
 ARG TOOLING_PATCH_DIR=patches
@@ -44,12 +46,17 @@ ENV PATH="/root/.bun/bin:$PATH"
 
 WORKDIR /affine
 
+ARG PRE_TOOLING_RND=AsDfJkL
 # Pull build tooling (scripts + patch packs) from affine-docker repo
 RUN git clone --depth 1 --branch ${TOOLING_REF} ${TOOLING_REPO} /tmp/affine-docker-tooling && \
     chmod +x /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/compose-private-branches.sh
 
 # Clone repository
 RUN git clone --depth 1 --branch ${GIT_TAG} ${GIT_REPO} .
+
+# Configure git identity for patch/cherry-pick commits in build container
+RUN git config user.name "${GIT_USER_NAME}" && \
+    git config user.email "${GIT_USER_EMAIL}"
 
 # Apply local patch set (recommended, deterministic path)
 RUN if [ "${APPLY_LOCAL_PATCHES}" = "true" ]; then \
