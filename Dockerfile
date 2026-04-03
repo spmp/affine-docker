@@ -7,6 +7,7 @@ FROM node:22-bookworm-slim AS builder
 # Build arguments
 ARG GIT_REPO=https://github.com/toeverything/AFFiNE.git
 ARG GIT_TAG=canary
+ARG GIT_DEPTH=0
 ARG GIT_USER_NAME=AFFiNE Docker Builder
 ARG GIT_USER_EMAIL=affine-docker-builder@local
 ARG TOOLING_REPO=https://github.com/spmp/affine-docker.git
@@ -51,8 +52,12 @@ ARG PRE_TOOLING_RND=AsDfJkL
 RUN git clone --depth 1 --branch ${TOOLING_REF} ${TOOLING_REPO} /tmp/affine-docker-tooling && \
     chmod +x /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/compose-private-branches.sh
 
-# Clone repository
-RUN git clone --depth 1 --branch ${GIT_TAG} ${GIT_REPO} .
+# Clone repository (full history by default for robust patch 3-way apply)
+RUN if [ "${GIT_DEPTH}" = "0" ]; then \
+      git clone --branch ${GIT_TAG} ${GIT_REPO} .; \
+    else \
+      git clone --depth ${GIT_DEPTH} --branch ${GIT_TAG} ${GIT_REPO} .; \
+    fi
 
 # Configure git identity for patch/cherry-pick commits in build container
 RUN git config user.name "${GIT_USER_NAME}" && \

@@ -48,12 +48,25 @@ echo "Patch root: $PATCH_ROOT"
 echo "Patch count: ${#PATCH_FILES[@]}"
 git -C "$REPO_PATH" show -s --oneline HEAD
 
+is_shallow_repo() {
+  test "$(git -C "$REPO_PATH" rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true"
+}
+
 for patch in "${PATCH_FILES[@]}"; do
   echo "Applying patch: $(basename "$patch")"
   if ! git -C "$REPO_PATH" am --3way "$patch"; then
+    if is_shallow_repo; then
+      echo "Patch failed on shallow clone. Fetching full history and retrying once..."
+      git -C "$REPO_PATH" am --abort || true
+      git -C "$REPO_PATH" fetch --unshallow || git -C "$REPO_PATH" fetch --depth=50000
+      if git -C "$REPO_PATH" am --3way "$patch"; then
+        continue
+      fi
+    fi
     echo "Patch apply failed: $patch"
     git -C "$REPO_PATH" status --short || true
     git -C "$REPO_PATH" diff --name-only --diff-filter=U || true
+    echo "Hint: if building from floating canary, patch drift may occur. Pin GIT_TAG to the patch base commit or regenerate patches against latest canary."
     git -C "$REPO_PATH" am --abort || true
     exit 1
   fi

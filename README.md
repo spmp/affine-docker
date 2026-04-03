@@ -30,6 +30,7 @@ This setup is originally based on work by **Sander Sneekes**:
 - Upstream AFFiNE source:
 - `GIT_REPO=https://github.com/toeverything/AFFiNE.git`
 - `GIT_TAG=canary`
+- `GIT_DEPTH=0` (full history; recommended for reliable `git am --3way`)
 - `GIT_USER_NAME=AFFiNE Docker Builder`
 - `GIT_USER_EMAIL=affine-docker-builder@local`
 - Tooling + patches source:
@@ -56,6 +57,7 @@ docker build \
   -t affine:local-patched \
   --build-arg GIT_REPO=https://github.com/toeverything/AFFiNE.git \
   --build-arg GIT_TAG=canary \
+  --build-arg GIT_DEPTH=0 \
   --build-arg GIT_USER_NAME="AFFiNE Docker Builder" \
   --build-arg GIT_USER_EMAIL="affine-docker-builder@local" \
   --build-arg TOOLING_REPO=https://github.com/spmp/affine-docker.git \
@@ -70,6 +72,7 @@ Notes:
 - Patches are applied recursively from `${TOOLING_PATCH_DIR}` (default `patches`).
 - Apply order is lexical by file path.
 - Build fails fast on patch conflicts and prints conflict files.
+- For deterministic patch builds, prefer pinning `GIT_TAG` to the commit your patch pack was generated from.
 
 ## Optional workflow (branch composition)
 
