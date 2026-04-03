@@ -1,4 +1,4 @@
-From 8bc48ae574e2664724f5991aebcb81ca2ea5a53d Mon Sep 17 00:00:00 2001
+From ef7326227c7ecf2802a6e5b73d329c6629c16144 Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Thu, 22 Jan 2026 11:39:31 -0700
 Subject: [PATCH 02/18] fix: handle Rounded mode in connector path generation
@@ -13,7 +13,7 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
  1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index f93f167fa4..df565bafe5 100644
+index 574dca11da..ab8dfbbe4f 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -1191,6 +1191,7 @@ export class ConnectorPathGenerator extends PathGenerator {

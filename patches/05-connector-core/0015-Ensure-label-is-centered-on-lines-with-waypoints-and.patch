@@ -1,4 +1,4 @@
-From ae4eb5c5ef23c8e7d0385b5ca2d1247ba2bd16e6 Mon Sep 17 00:00:00 2001
+From 8163ddf57890fe8b9efd846457a48e5f0c4ae619 Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Tue, 17 Feb 2026 14:39:31 -0700
 Subject: [PATCH 15/18] Ensure label is centered on lines with waypoints and
@@ -13,7 +13,7 @@ Subject: [PATCH 15/18] Ensure label is centered on lines with waypoints and
  5 files changed, 164 insertions(+), 30 deletions(-)
 
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 303e510702..85e231173f 100644
+index 82b13a0935..67c75d2a23 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -1322,6 +1322,8 @@ export class ConnectorPathGenerator extends PathGenerator {

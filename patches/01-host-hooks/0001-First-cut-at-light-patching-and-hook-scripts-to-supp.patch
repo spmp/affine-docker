@@ -1,0 +1,171 @@
+From 8b824c33283b69c39607fbae4cc5fae22ac0edf6 Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Thu, 2 Apr 2026 21:30:28 -0600
+Subject: [PATCH] First cut at light patching and hook scripts to support
+ externalisaiton and modularisation of development features
+
+---
+ .../ai/components/page-editor-block-specs.ts  |  7 ++-
+ .../blocksuite/manager/private-extensions.ts  | 25 +++++++++
+ .../core/src/blocksuite/manager/store.ts      |  2 +
+ .../core/src/blocksuite/manager/view.ts       |  3 +
+ scripts/private/compose-private-branches.sh   | 56 +++++++++++++++++++
+ 5 files changed, 92 insertions(+), 1 deletion(-)
+ create mode 100644 packages/frontend/core/src/blocksuite/manager/private-extensions.ts
+ create mode 100755 scripts/private/compose-private-branches.sh
+
+diff --git a/packages/frontend/core/src/blocksuite/ai/components/page-editor-block-specs.ts b/packages/frontend/core/src/blocksuite/ai/components/page-editor-block-specs.ts
+index 39957c60d2..5ff453ac27 100644
+--- a/packages/frontend/core/src/blocksuite/ai/components/page-editor-block-specs.ts
++++ b/packages/frontend/core/src/blocksuite/ai/components/page-editor-block-specs.ts
+@@ -4,7 +4,12 @@ import { BlockViewIdentifier } from '@blocksuite/affine/std';
+ import type { ExtensionType } from '@blocksuite/affine/store';
+ import { literal } from 'lit/static-html.js';
+ 
+-const manager = new ViewExtensionManager([...getInternalViewExtensions()]);
++import { getPrivateViewExtensions } from '../../manager/private-extensions';
++
++const manager = new ViewExtensionManager([
++  ...getInternalViewExtensions(),
++  ...getPrivateViewExtensions(),
++]);
+ const customPageEditorBlockSpecs: ExtensionType[] = [
+   ...manager.get('page'),
+   {
+diff --git a/packages/frontend/core/src/blocksuite/manager/private-extensions.ts b/packages/frontend/core/src/blocksuite/manager/private-extensions.ts
+new file mode 100644
+index 0000000000..e601398db9
+--- /dev/null
++++ b/packages/frontend/core/src/blocksuite/manager/private-extensions.ts
+@@ -0,0 +1,25 @@
++type ExtensionCtor = unknown;
++
++const privateViewExtensions: ExtensionCtor[] = [];
++const privateStoreExtensions: ExtensionCtor[] = [];
++
++export function registerPrivateViewExtensions(...extensions: ExtensionCtor[]) {
++  privateViewExtensions.push(...extensions);
++}
++
++export function registerPrivateStoreExtensions(...extensions: ExtensionCtor[]) {
++  privateStoreExtensions.push(...extensions);
++}
++
++export function getPrivateViewExtensions() {
++  return [...privateViewExtensions];
++}
++
++export function getPrivateStoreExtensions() {
++  return [...privateStoreExtensions];
++}
++
++export function clearPrivateExtensions() {
++  privateViewExtensions.length = 0;
++  privateStoreExtensions.length = 0;
++}
+diff --git a/packages/frontend/core/src/blocksuite/manager/store.ts b/packages/frontend/core/src/blocksuite/manager/store.ts
+index 65f8ade239..92d2727413 100644
+--- a/packages/frontend/core/src/blocksuite/manager/store.ts
++++ b/packages/frontend/core/src/blocksuite/manager/store.ts
+@@ -4,6 +4,7 @@ import { StoreExtensionManager } from '@blocksuite/affine/ext-loader';
+ import { getInternalStoreExtensions } from '@blocksuite/affine/extensions/store';
+ 
+ import { FeatureFlagStoreExtension } from '../store-extensions/feature-flag';
++import { getPrivateStoreExtensions } from './private-extensions';
+ 
+ interface Configure {
+   init: () => Configure;
+@@ -27,6 +28,7 @@ class StoreProvider {
+   constructor() {
+     this._manager = new StoreExtensionManager([
+       ...getInternalStoreExtensions(),
++      ...getPrivateStoreExtensions(),
+       AIStoreExtension,
+       FeatureFlagStoreExtension,
+     ]);
+diff --git a/packages/frontend/core/src/blocksuite/manager/view.ts b/packages/frontend/core/src/blocksuite/manager/view.ts
+index 3e5d19199e..80386572ce 100644
+--- a/packages/frontend/core/src/blocksuite/manager/view.ts
++++ b/packages/frontend/core/src/blocksuite/manager/view.ts
+@@ -40,6 +40,8 @@ import { LinkedDocViewExtension } from '@blocksuite/affine/widgets/linked-doc/vi
+ import type { FrameworkProvider } from '@toeverything/infra';
+ import type { TemplateResult } from 'lit';
+ 
++import { getPrivateViewExtensions } from './private-extensions';
++
+ type Configure = {
+   init: () => Configure;
+ 
+@@ -84,6 +86,7 @@ class ViewProvider {
+   constructor() {
+     this._manager = new ViewExtensionManager([
+       ...getInternalViewExtensions(),
++      ...getPrivateViewExtensions(),
+ 
+       AffineThemeViewExtension,
+       AffineEditorViewExtension,
+diff --git a/scripts/private/compose-private-branches.sh b/scripts/private/compose-private-branches.sh
+new file mode 100755
+index 0000000000..bc8d6cbd99
+--- /dev/null
++++ b/scripts/private/compose-private-branches.sh
+@@ -0,0 +1,56 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++if [ "$#" -lt 4 ]; then
++  echo "Usage: $0 <repo-path> <upstream-branch> <private-repo-url> <host-hooks-branch> [ext-branches-csv]"
++  echo "Example: $0 /workspace/AFFiNE canary https://github.com/spmp/AFFiNE.git platform/host-hooks ext/connector-kit,ext/grid-snap"
++  exit 1
++fi
++
++REPO_PATH="$1"
++UPSTREAM_BRANCH="$2"
++PRIVATE_REPO_URL="$3"
++HOST_HOOKS_BRANCH="$4"
++EXT_BRANCHES_CSV="${5:-}"
++
++if [ ! -d "$REPO_PATH/.git" ]; then
++  echo "Error: $REPO_PATH is not a git repository"
++  exit 1
++fi
++
++if ! git -C "$REPO_PATH" rev-parse --verify "upstream/$UPSTREAM_BRANCH" >/dev/null 2>&1; then
++  echo "Error: upstream/$UPSTREAM_BRANCH not found. Run: git -C $REPO_PATH fetch upstream"
++  exit 1
++fi
++
++if git -C "$REPO_PATH" remote get-url private >/dev/null 2>&1; then
++  git -C "$REPO_PATH" remote set-url private "$PRIVATE_REPO_URL"
++else
++  git -C "$REPO_PATH" remote add private "$PRIVATE_REPO_URL"
++fi
++
++git -C "$REPO_PATH" fetch private "$HOST_HOOKS_BRANCH"
++
++BASE_REF="upstream/$UPSTREAM_BRANCH"
++
++for sha in $(git -C "$REPO_PATH" rev-list --reverse --no-merges "$BASE_REF..private/$HOST_HOOKS_BRANCH"); do
++  git -C "$REPO_PATH" cherry-pick "$sha"
++done
++
++if [ -n "$EXT_BRANCHES_CSV" ]; then
++  IFS=',' read -ra EXT_BRANCHES <<< "$EXT_BRANCHES_CSV"
++  for branch in "${EXT_BRANCHES[@]}"; do
++    ext_branch="$(echo "$branch" | xargs)"
++    if [ -z "$ext_branch" ]; then
++      continue
++    fi
++
++    git -C "$REPO_PATH" fetch private "$ext_branch"
++
++    for sha in $(git -C "$REPO_PATH" rev-list --reverse --no-merges "private/$HOST_HOOKS_BRANCH..private/$ext_branch"); do
++      git -C "$REPO_PATH" cherry-pick "$sha"
++    done
++  done
++fi
++
++echo "Done composing private branches onto current checkout."
+-- 
+2.53.0
+

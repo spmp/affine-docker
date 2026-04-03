@@ -1,4 +1,4 @@
-From ad15ddaccb7f443327d94ae04fc6e861dac9be5f Mon Sep 17 00:00:00 2001
+From 85b2e25836714baf6bda5610cc2c4fa927ba3ebb Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Sat, 24 Jan 2026 08:17:29 -0700
 Subject: [PATCH 05/18] Add jump detection algorithm for connector

@@ -1,4 +1,4 @@
-From bc26ef06f7a94d3b7f7dae1c9056eabec6b2bbdf Mon Sep 17 00:00:00 2001
+From 5bb8a1e9b9a6215828d1bfff0532ad00148de97c Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Thu, 2 Apr 2026 12:40:25 -0600
 Subject: [PATCH 17/18] Revert "Ensure label is centered on lines with
@@ -14,7 +14,7 @@ This reverts commit ae4eb5c5ef23c8e7d0385b5ca2d1247ba2bd16e6.
  5 files changed, 30 insertions(+), 194 deletions(-)
 
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 85e231173f..303e510702 100644
+index 67c75d2a23..82b13a0935 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -1322,8 +1322,6 @@ export class ConnectorPathGenerator extends PathGenerator {

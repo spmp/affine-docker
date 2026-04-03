@@ -1,4 +1,4 @@
-From 3a6cff862b42dd32f234cfb6e95fe663ecea3d6c Mon Sep 17 00:00:00 2001
+From 1d1ef408fd0aa8eaae1576fded01160e163a8898 Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Sat, 24 Jan 2026 08:15:20 -0700
 Subject: [PATCH 04/18] Add waypoints and jump style properties to connector
@@ -20,7 +20,7 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
  4 files changed, 60 insertions(+)
 
 diff --git a/blocksuite/affine/gfx/shape/package.json b/blocksuite/affine/gfx/shape/package.json
-index 4dd6f3a3f5..228199a3a4 100644
+index 730761bdb9..95002a15b4 100644
 --- a/blocksuite/affine/gfx/shape/package.json
 +++ b/blocksuite/affine/gfx/shape/package.json
 @@ -22,6 +22,7 @@
@@ -30,7 +30,7 @@ index 4dd6f3a3f5..228199a3a4 100644
 +    "@floating-ui/dom": "^1.6.12",
      "@lit/context": "^1.1.2",
      "@preact/signals-core": "^1.8.0",
-     "@toeverything/theme": "^1.1.23",
+     "@types/lodash-es": "^4.17.12",
 diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
 index 8dbb813a89..4e97260631 100644
 --- a/blocksuite/affine/model/src/elements/connector/connector.ts
@@ -86,7 +86,7 @@ index 8dbb813a89..4e97260631 100644
    accessor xywh: SerializedXYWH = '[0,0,0,0]';
  }
 diff --git a/tools/utils/src/workspace.gen.ts b/tools/utils/src/workspace.gen.ts
-index 5115f6f65a..a8dec46451 100644
+index 98faf5aec3..c8f54a120f 100644
 --- a/tools/utils/src/workspace.gen.ts
 +++ b/tools/utils/src/workspace.gen.ts
 @@ -53,6 +53,7 @@ export const PackageList = [
@@ -97,7 +97,7 @@ index 5115f6f65a..a8dec46451 100644
        'blocksuite/affine/widgets/drag-handle',
        'blocksuite/affine/widgets/edgeless-auto-connect',
        'blocksuite/affine/widgets/edgeless-dragging-area',
-@@ -859,6 +860,18 @@ export const PackageList = [
+@@ -814,6 +815,18 @@ export const PackageList = [
        'blocksuite/framework/store',
      ],
    },
@@ -116,7 +116,7 @@ index 5115f6f65a..a8dec46451 100644
    {
      location: 'blocksuite/affine/widgets/drag-handle',
      name: '@blocksuite/affine-widget-drag-handle',
-@@ -1561,6 +1574,7 @@ export type PackageName =
+@@ -1485,6 +1498,7 @@ export type PackageName =
    | '@blocksuite/affine-model'
    | '@blocksuite/affine-rich-text'
    | '@blocksuite/affine-shared'
@@ -125,18 +125,18 @@ index 5115f6f65a..a8dec46451 100644
    | '@blocksuite/affine-widget-edgeless-auto-connect'
    | '@blocksuite/affine-widget-edgeless-dragging-area'
 diff --git a/yarn.lock b/yarn.lock
-index ccf750cf43..bbd787e63f 100644
+index 954c5e0e92..0e563b1673 100644
 --- a/yarn.lock
 +++ b/yarn.lock
-@@ -2668,6 +2668,7 @@ __metadata:
+@@ -2410,6 +2410,7 @@ __metadata:
      "@blocksuite/icons": "npm:^2.2.17"
      "@blocksuite/std": "workspace:*"
      "@blocksuite/store": "workspace:*"
 +    "@floating-ui/dom": "npm:^1.6.12"
      "@lit/context": "npm:^1.1.2"
      "@preact/signals-core": "npm:^1.8.0"
-     "@toeverything/theme": "npm:^1.1.23"
-@@ -3060,6 +3061,20 @@ __metadata:
+     "@types/lodash-es": "npm:^4.17.12"
+@@ -2704,6 +2705,20 @@ __metadata:
    languageName: unknown
    linkType: soft
  
@@ -157,7 +157,7 @@ index ccf750cf43..bbd787e63f 100644
  "@blocksuite/affine-widget-drag-handle@workspace:*, @blocksuite/affine-widget-drag-handle@workspace:blocksuite/affine/widgets/drag-handle":
    version: 0.0.0-use.local
    resolution: "@blocksuite/affine-widget-drag-handle@workspace:blocksuite/affine/widgets/drag-handle"
-@@ -3496,6 +3511,7 @@ __metadata:
+@@ -3069,6 +3084,7 @@ __metadata:
      "@blocksuite/affine-model": "workspace:*"
      "@blocksuite/affine-rich-text": "workspace:*"
      "@blocksuite/affine-shared": "workspace:*"

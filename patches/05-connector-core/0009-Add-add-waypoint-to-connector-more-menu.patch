@@ -1,4 +1,4 @@
-From 7996d5a45db650fcf1fef2ece7a14aa1932fb198 Mon Sep 17 00:00:00 2001
+From 194c3971bd6e5f15ef6b357ad68f9e771ade5d0c Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Fri, 6 Feb 2026 10:32:37 -0700
 Subject: [PATCH 09/18] Add 'add waypoint' to connector more menu
@@ -306,7 +306,7 @@ index d4a3651d1f..63cd2c840b 100644
  
      // block should be updated in transaction
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index df565bafe5..303e510702 100644
+index ab8dfbbe4f..82b13a0935 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -60,16 +60,88 @@ export const ConnectorEndpointLocations: IVec[] = [

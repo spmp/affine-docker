@@ -1,4 +1,4 @@
-From e1fc7f3adc8c023a0a58018e5f1a5f3e567d15b9 Mon Sep 17 00:00:00 2001
+From 98bbe64fdb67e72f643eed340d4c01e302468ee4 Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Sat, 24 Jan 2026 08:24:57 -0700
 Subject: [PATCH 07/18] Add jump style selector to connector toolbar

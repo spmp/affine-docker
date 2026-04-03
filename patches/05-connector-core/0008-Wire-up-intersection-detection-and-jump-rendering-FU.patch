@@ -1,4 +1,4 @@
-From cbd6ccc3c47d12afe34b3d80416adfa94f89cf4a Mon Sep 17 00:00:00 2001
+From e3965b0e85f0d8407fbc91b2d21cb5d8afe39afa Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Wed, 1 Apr 2026 18:15:26 -0600
 Subject: [PATCH 08/18] Wire up intersection detection and jump rendering

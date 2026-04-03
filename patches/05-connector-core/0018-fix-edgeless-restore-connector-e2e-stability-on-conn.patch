@@ -1,4 +1,4 @@
-From 40c5179d5da47a54bc8bdf0953488c8a64af3efd Mon Sep 17 00:00:00 2001
+From a4dfe48811a170766f5bf101df056a7841e0269c Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Thu, 2 Apr 2026 13:04:07 -0600
 Subject: [PATCH 18/18] fix(edgeless): restore connector e2e stability on
@@ -122,7 +122,7 @@ index 63cd2c840b..17c3bda082 100644
  
      // block should be updated in transaction
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 303e510702..8726c31544 100644
+index 82b13a0935..75b216b918 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -995,7 +995,7 @@ export class ConnectionOverlay extends Overlay {
