@@ -1,0 +1,73 @@
+From b9e7eb57887cd42e51a5bd7f07959323cf4e7974 Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Thu, 22 Jan 2026 11:40:48 -0700
+Subject: [PATCH 03/18] feat: implement rounded corner rendering for connectors
+
+Adds support for rendering rounded corners at bend points when
+connector mode is Rounded. Uses canvas arcTo() to create smooth
+arcs with the configured cornerRadius (default 20px).
+
+Note: Rough/scribbled mode doesn't support rounded corners yet
+as roughjs doesn't have arcTo equivalent.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+---
+ .../src/renderer/element-renderer.ts          | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts b/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
+index 6d6b1e205f..1d06443566 100644
+--- a/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
++++ b/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
+@@ -89,6 +89,7 @@ export const connector: ElementRenderer<
+     points,
+     strokeStyle === 'dash',
+     mode === ConnectorMode.Curve,
++    mode === ConnectorMode.Rounded,
+     strokeColor
+   );
+   renderEndpoint(
+@@ -134,9 +135,10 @@ function renderPoints(
+   points: PointLocation[],
+   dash: boolean,
+   curve: boolean,
++  rounded: boolean,
+   stroke: string
+ ) {
+-  const { seed, strokeWidth, roughness, rough } = model;
++  const { seed, strokeWidth, roughness, rough, cornerRadius } = model;
+ 
+   if (rough) {
+     const options = {
+@@ -153,6 +155,7 @@ function renderPoints(
+         options
+       );
+     } else {
++      // TODO: roughjs doesn't support arcTo, so rounded corners are not supported in rough mode
+       rc.linearPath(points as unknown as [number, number][], options);
+     }
+   } else {
+@@ -179,6 +182,20 @@ function renderPoints(
+           );
+         }
+       });
++    } else if (rounded && points.length > 2) {
++      // Render path with rounded corners at bend points
++      const radius = cornerRadius ?? 20;
++      ctx.moveTo(points[0][0], points[0][1]);
++      for (let i = 1; i < points.length - 1; i++) {
++        const prev = points[i - 1];
++        const curr = points[i];
++        const next = points[i + 1];
++        // Use arcTo to create rounded corner
++        ctx.arcTo(curr[0], curr[1], next[0], next[1], radius);
++      }
++      // Line to the last point
++      const lastPoint = points[points.length - 1];
++      ctx.lineTo(lastPoint[0], lastPoint[1]);
+     } else {
+       points.forEach((point, index) => {
+         if (index === 0) {
+-- 
+2.53.0
+

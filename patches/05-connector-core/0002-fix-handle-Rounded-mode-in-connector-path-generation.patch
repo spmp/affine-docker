@@ -1,0 +1,43 @@
+From 8bc48ae574e2664724f5991aebcb81ca2ea5a53d Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Thu, 22 Jan 2026 11:39:31 -0700
+Subject: [PATCH 02/18] fix: handle Rounded mode in connector path generation
+
+Rounded connectors use the same path generation as Orthogonal/Elbowed.
+The rounded corners will be rendered during the drawing phase using
+the cornerRadius property.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+---
+ blocksuite/affine/gfx/connector/src/connector-manager.ts | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
+index f93f167fa4..df565bafe5 100644
+--- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
++++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
+@@ -1191,6 +1191,7 @@ export class ConnectorPathGenerator extends PathGenerator {
+       getElementById: elementGetter ?? (() => null),
+     });
+     const points = path ?? instance._generateConnectorPath(connector) ?? [];
++    // Curve mode uses bezier bounding box, others use simple point bounds
+     const bound =
+       connector.mode === ConnectorMode.Curve
+         ? getBezierCurveBoundingBox(getBezierParameters(points))
+@@ -1267,7 +1268,12 @@ export class ConnectorPathGenerator extends PathGenerator {
+     const { mode } = connector;
+     if (mode === ConnectorMode.Straight) {
+       return this._generateStraightConnectorPath(connector);
+-    } else if (mode === ConnectorMode.Orthogonal) {
++    } else if (
++      mode === ConnectorMode.Orthogonal ||
++      mode === ConnectorMode.Rounded
++    ) {
++      // Rounded uses the same path generation as Orthogonal,
++      // the rounded corners are handled during rendering
+       const start = this._getConnectorEndElement(connector, 'source');
+       const end = this._getConnectorEndElement(connector, 'target');
+ 
+-- 
+2.53.0
+

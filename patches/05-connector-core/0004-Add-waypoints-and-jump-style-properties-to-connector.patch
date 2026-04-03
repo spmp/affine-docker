@@ -1,0 +1,170 @@
+From 3a6cff862b42dd32f234cfb6e95fe663ecea3d6c Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Sat, 24 Jan 2026 08:15:20 -0700
+Subject: [PATCH 04/18] Add waypoints and jump style properties to connector
+ model
+
+- Add JumpStyle type: 'none' | 'arc' | 'gap' | 'sharp' | 'line'
+- Add waypoints property to store user-defined routing points
+- Add jumpStyle property (default 'none')
+- Add jumpSize property (default 10px)
+
+Phase 1 complete - model schema extended for draw.io-style features.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+---
+ blocksuite/affine/gfx/shape/package.json      |  1 +
+ .../model/src/elements/connector/connector.ts | 29 +++++++++++++++++++
+ tools/utils/src/workspace.gen.ts              | 14 +++++++++
+ yarn.lock                                     | 16 ++++++++++
+ 4 files changed, 60 insertions(+)
+
+diff --git a/blocksuite/affine/gfx/shape/package.json b/blocksuite/affine/gfx/shape/package.json
+index 4dd6f3a3f5..228199a3a4 100644
+--- a/blocksuite/affine/gfx/shape/package.json
++++ b/blocksuite/affine/gfx/shape/package.json
+@@ -22,6 +22,7 @@
+     "@blocksuite/icons": "^2.2.17",
+     "@blocksuite/std": "workspace:*",
+     "@blocksuite/store": "workspace:*",
++    "@floating-ui/dom": "^1.6.12",
+     "@lit/context": "^1.1.2",
+     "@preact/signals-core": "^1.8.0",
+     "@toeverything/theme": "^1.1.23",
+diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
+index 8dbb813a89..4e97260631 100644
+--- a/blocksuite/affine/model/src/elements/connector/connector.ts
++++ b/blocksuite/affine/model/src/elements/connector/connector.ts
+@@ -42,6 +42,8 @@ import {
+ } from '../../consts/index';
+ import { type Color, DefaultTheme } from '../../themes/index';
+ 
++export type JumpStyle = 'none' | 'arc' | 'gap' | 'sharp' | 'line';
++
+ export type SerializedConnection = {
+   id?: string;
+   position?: `[${number},${number}]` | PointLocation;
+@@ -104,6 +106,13 @@ export type ConnectorElementProps = BaseElementProps & {
+ 
+   frontEndpointStyle?: PointStyle;
+   rearEndpointStyle?: PointStyle;
++
++  // Waypoints for connector routing
++  waypoints?: IVec[];
++
++  // Jump styles for connector intersections
++  jumpStyle?: JumpStyle;
++  jumpSize?: number;
+ } & ConnectorLabelProps;
+ 
+ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorElementProps> {
+@@ -531,6 +540,26 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+   @field()
+   accessor text: Y.Text | undefined = undefined;
+ 
++  /**
++   * User-defined waypoints for connector routing.
++   * These are intermediate control points that the connector path passes through.
++   */
++  @field()
++  accessor waypoints: IVec[] | undefined = undefined;
++
++  /**
++   * Jump style for rendering connector intersections.
++   * Options: 'none', 'arc', 'gap', 'sharp', 'line'
++   */
++  @field('none' as JumpStyle)
++  accessor jumpStyle!: JumpStyle;
++
++  /**
++   * Jump size in pixels for rendering jumps at intersections.
++   */
++  @field(10)
++  accessor jumpSize!: number;
++
+   @local()
+   accessor xywh: SerializedXYWH = '[0,0,0,0]';
+ }
+diff --git a/tools/utils/src/workspace.gen.ts b/tools/utils/src/workspace.gen.ts
+index 5115f6f65a..a8dec46451 100644
+--- a/tools/utils/src/workspace.gen.ts
++++ b/tools/utils/src/workspace.gen.ts
+@@ -53,6 +53,7 @@ export const PackageList = [
+       'blocksuite/affine/model',
+       'blocksuite/affine/rich-text',
+       'blocksuite/affine/shared',
++      'blocksuite/affine/widgets/connection-point-hover',
+       'blocksuite/affine/widgets/drag-handle',
+       'blocksuite/affine/widgets/edgeless-auto-connect',
+       'blocksuite/affine/widgets/edgeless-dragging-area',
+@@ -859,6 +860,18 @@ export const PackageList = [
+       'blocksuite/framework/store',
+     ],
+   },
++  {
++    location: 'blocksuite/affine/widgets/connection-point-hover',
++    name: '@blocksuite/affine-widget-connection-point-hover',
++    workspaceDependencies: [
++      'blocksuite/affine/blocks/surface',
++      'blocksuite/affine/ext-loader',
++      'blocksuite/affine/gfx/connector',
++      'blocksuite/affine/model',
++      'blocksuite/framework/global',
++      'blocksuite/framework/std',
++    ],
++  },
+   {
+     location: 'blocksuite/affine/widgets/drag-handle',
+     name: '@blocksuite/affine-widget-drag-handle',
+@@ -1561,6 +1574,7 @@ export type PackageName =
+   | '@blocksuite/affine-model'
+   | '@blocksuite/affine-rich-text'
+   | '@blocksuite/affine-shared'
++  | '@blocksuite/affine-widget-connection-point-hover'
+   | '@blocksuite/affine-widget-drag-handle'
+   | '@blocksuite/affine-widget-edgeless-auto-connect'
+   | '@blocksuite/affine-widget-edgeless-dragging-area'
+diff --git a/yarn.lock b/yarn.lock
+index ccf750cf43..bbd787e63f 100644
+--- a/yarn.lock
++++ b/yarn.lock
+@@ -2668,6 +2668,7 @@ __metadata:
+     "@blocksuite/icons": "npm:^2.2.17"
+     "@blocksuite/std": "workspace:*"
+     "@blocksuite/store": "workspace:*"
++    "@floating-ui/dom": "npm:^1.6.12"
+     "@lit/context": "npm:^1.1.2"
+     "@preact/signals-core": "npm:^1.8.0"
+     "@toeverything/theme": "npm:^1.1.23"
+@@ -3060,6 +3061,20 @@ __metadata:
+   languageName: unknown
+   linkType: soft
+ 
++"@blocksuite/affine-widget-connection-point-hover@workspace:*, @blocksuite/affine-widget-connection-point-hover@workspace:blocksuite/affine/widgets/connection-point-hover":
++  version: 0.0.0-use.local
++  resolution: "@blocksuite/affine-widget-connection-point-hover@workspace:blocksuite/affine/widgets/connection-point-hover"
++  dependencies:
++    "@blocksuite/affine-block-surface": "workspace:*"
++    "@blocksuite/affine-ext-loader": "workspace:*"
++    "@blocksuite/affine-gfx-connector": "workspace:*"
++    "@blocksuite/affine-model": "workspace:*"
++    "@blocksuite/global": "workspace:*"
++    "@blocksuite/std": "workspace:*"
++    lit: "npm:^3.2.0"
++  languageName: unknown
++  linkType: soft
++
+ "@blocksuite/affine-widget-drag-handle@workspace:*, @blocksuite/affine-widget-drag-handle@workspace:blocksuite/affine/widgets/drag-handle":
+   version: 0.0.0-use.local
+   resolution: "@blocksuite/affine-widget-drag-handle@workspace:blocksuite/affine/widgets/drag-handle"
+@@ -3496,6 +3511,7 @@ __metadata:
+     "@blocksuite/affine-model": "workspace:*"
+     "@blocksuite/affine-rich-text": "workspace:*"
+     "@blocksuite/affine-shared": "workspace:*"
++    "@blocksuite/affine-widget-connection-point-hover": "workspace:*"
+     "@blocksuite/affine-widget-drag-handle": "workspace:*"
+     "@blocksuite/affine-widget-edgeless-auto-connect": "workspace:*"
+     "@blocksuite/affine-widget-edgeless-dragging-area": "workspace:*"
+-- 
+2.53.0
+

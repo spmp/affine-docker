@@ -1,0 +1,256 @@
+From 0b34f59b2aa1803e276166fb40f7fa1ab0a45d38 Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Thu, 22 Jan 2026 11:37:40 -0700
+Subject: [PATCH 01/18] feat: add Rounded connector mode and reorder shape menu
+
+- Add ConnectorMode.Rounded enum value
+- Add cornerRadius property to ConnectorElementModel (default 20px)
+- Create ConnectorRIcon for rounded connector button
+- Update connector menus (toolbar, dense menu, tool button)
+- Reorder shape menu: Rect, RoundedRect, Ellipse, Diamond
+- Move Triangle to ExtendedShapeConfig for shape browser
+
+Note: Rounded connector path generation not yet implemented.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+---
+ .../gfx/connector/src/toolbar/config.ts       |  6 +++++
+ .../src/toolbar/connector-dense-menu.ts       |  7 ++++++
+ .../connector/src/toolbar/connector-menu.ts   | 10 ++++++++
+ .../src/toolbar/connector-tool-button.ts      |  2 ++
+ .../affine/gfx/connector/src/toolbar/icons.ts | 24 +++++++++++++++++++
+ .../shape/src/toolbar/shape-menu-config.ts    | 24 +++++++++++++------
+ .../affine/model/src/consts/connector.ts      |  3 +++
+ .../model/src/elements/connector/connector.ts |  6 +++++
+ 8 files changed, 75 insertions(+), 7 deletions(-)
+ create mode 100644 blocksuite/affine/gfx/connector/src/toolbar/icons.ts
+
+diff --git a/blocksuite/affine/gfx/connector/src/toolbar/config.ts b/blocksuite/affine/gfx/connector/src/toolbar/config.ts
+index 0a1c1fa6e6..c94dc5ce50 100644
+--- a/blocksuite/affine/gfx/connector/src/toolbar/config.ts
++++ b/blocksuite/affine/gfx/connector/src/toolbar/config.ts
+@@ -60,6 +60,7 @@ import { styleMap } from 'lit/directives/style-map.js';
+ 
+ import { isConnectorWithLabel } from '../connector-manager';
+ import { mountConnectorLabelEditor } from '../text';
++import { ConnectorRIcon } from './icons';
+ 
+ const FRONT_ENDPOINT_STYLE_LIST = [
+   {
+@@ -118,6 +119,11 @@ const CONNECTOR_MODE_LIST = [
+     value: ConnectorMode.Orthogonal,
+     icon: ConnectorEIcon(),
+   },
++  {
++    key: 'Rounded',
++    value: ConnectorMode.Rounded,
++    icon: ConnectorRIcon(),
++  },
+   {
+     key: 'Straight',
+     value: ConnectorMode.Straight,
+diff --git a/blocksuite/affine/gfx/connector/src/toolbar/connector-dense-menu.ts b/blocksuite/affine/gfx/connector/src/toolbar/connector-dense-menu.ts
+index 9d00827f77..63b7f11499 100644
+--- a/blocksuite/affine/gfx/connector/src/toolbar/connector-dense-menu.ts
++++ b/blocksuite/affine/gfx/connector/src/toolbar/connector-dense-menu.ts
+@@ -9,6 +9,7 @@ import {
+ } from '@blocksuite/icons/lit';
+ 
+ import { ConnectorTool } from '../connector-tool';
++import { ConnectorRIcon } from './icons';
+ 
+ export const buildConnectorDenseMenu: DenseMenuBuilder = (edgeless, gfx) => {
+   const prevMode =
+@@ -46,6 +47,12 @@ export const buildConnectorDenseMenu: DenseMenuBuilder = (edgeless, gfx) => {
+           select: createSelect(ConnectorMode.Orthogonal),
+           isSelected: isSelected && prevMode === ConnectorMode.Orthogonal,
+         }),
++        menu.action({
++          name: 'Rounded',
++          prefix: ConnectorRIcon(iconSize),
++          select: createSelect(ConnectorMode.Rounded),
++          isSelected: isSelected && prevMode === ConnectorMode.Rounded,
++        }),
+         menu.action({
+           name: 'Straight',
+           prefix: ConnectorLIcon(iconSize),
+diff --git a/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts b/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
+index 06e1a34ce8..5fa7e0af1b 100644
+--- a/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
++++ b/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
+@@ -21,6 +21,7 @@ import { css, html, LitElement } from 'lit';
+ import { property } from 'lit/decorators.js';
+ 
+ import { ConnectorTool } from '../connector-tool';
++import { ConnectorRIcon } from './icons';
+ 
+ function ConnectorModeButtonGroup(
+   mode: ConnectorMode,
+@@ -51,6 +52,15 @@ function ConnectorModeButtonGroup(
+       >
+         ${ConnectorEIcon()}
+       </edgeless-tool-icon-button>
++      <edgeless-tool-icon-button
++        .active=${mode === ConnectorMode.Rounded}
++        .activeMode=${'background'}
++        .tooltip=${'Rounded'}
++        .iconSize=${'20px'}
++        @click=${() => setConnectorMode({ mode: ConnectorMode.Rounded })}
++      >
++        ${ConnectorRIcon()}
++      </edgeless-tool-icon-button>
+       <edgeless-tool-icon-button
+         .active=${mode === ConnectorMode.Straight}
+         .activeMode=${'background'}
+diff --git a/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts b/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts
+index 6b07969a79..0125039149 100644
+--- a/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts
++++ b/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts
+@@ -11,11 +11,13 @@ import { computed } from '@preact/signals-core';
+ import { css, html, LitElement } from 'lit';
+ 
+ import { ConnectorTool } from '../connector-tool';
++import { ConnectorRIcon } from './icons';
+ 
+ const IcomMap = {
+   [ConnectorMode.Straight]: ConnectorLIcon(),
+   [ConnectorMode.Orthogonal]: ConnectorEIcon(),
+   [ConnectorMode.Curve]: ConnectorCIcon(),
++  [ConnectorMode.Rounded]: ConnectorRIcon(),
+ };
+ 
+ export class EdgelessConnectorToolButton extends QuickToolMixin(
+diff --git a/blocksuite/affine/gfx/connector/src/toolbar/icons.ts b/blocksuite/affine/gfx/connector/src/toolbar/icons.ts
+new file mode 100644
+index 0000000000..0ebe6d0d6c
+--- /dev/null
++++ b/blocksuite/affine/gfx/connector/src/toolbar/icons.ts
+@@ -0,0 +1,24 @@
++import { html } from 'lit';
++
++/**
++ * Rounded connector icon - shows an orthogonal connector with rounded corners
++ */
++export const ConnectorRIcon = ({
++  width = '1em',
++  height = '1em',
++  style = '',
++} = {}) => html`
++  <svg
++    xmlns="http://www.w3.org/2000/svg"
++    viewBox="0 0 24 24"
++    width=${width}
++    height=${height}
++    fill="none"
++    style=${'user-select:none;flex-shrink:0;' + style}
++  >
++    <path
++      fill="currentColor"
++      d="M17.03 2.02a.75.75 0 1 0-1.06 1.06l3.67 3.67H14a2.75 2.75 0 0 0-2.75 2.75v5.75a4 4 0 0 1-4 4H3a.75.75 0 0 0 0 1.5h4.25a5.5 5.5 0 0 0 5.5-5.5V9.5c0-.69.56-1.25 1.25-1.25h5.64l-3.67 3.67a.75.75 0 1 0 1.06 1.06l4.88-4.879a.85.85 0 0 0 0-1.202z"
++    />
++  </svg>
++`;
+diff --git a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
+index ed95c6200f..065cbf33b9 100644
+--- a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
++++ b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
+@@ -33,6 +33,13 @@ export const ShapeComponentConfig: Config[] = [
+     tooltip: 'Square',
+     disabled: false,
+   },
++  {
++    name: 'roundedRect',
++    generalIcon: RoundedRectangleIcon(),
++    scribbledIcon: ScribbledRoundedRectangleIcon,
++    tooltip: 'Rounded rectangle',
++    disabled: false,
++  },
+   {
+     name: ShapeType.Ellipse,
+     generalIcon: EllipseIcon(),
+@@ -47,6 +54,10 @@ export const ShapeComponentConfig: Config[] = [
+     tooltip: 'Diamond',
+     disabled: false,
+   },
++];
++
++// Shapes available in the shape browser (More menu)
++export const ExtendedShapeConfig: Config[] = [
+   {
+     name: ShapeType.Triangle,
+     generalIcon: TriangleIcon(),
+@@ -54,13 +65,12 @@ export const ShapeComponentConfig: Config[] = [
+     tooltip: 'Triangle',
+     disabled: false,
+   },
+-  {
+-    name: 'roundedRect',
+-    generalIcon: RoundedRectangleIcon(),
+-    scribbledIcon: ScribbledRoundedRectangleIcon,
+-    tooltip: 'Rounded rectangle',
+-    disabled: false,
+-  },
++];
++
++// All shapes combined (for shape browser)
++export const AllShapeConfig: Config[] = [
++  ...ShapeComponentConfig,
++  ...ExtendedShapeConfig,
+ ];
+ 
+ export const ShapeComponentConfigMap = ShapeComponentConfig.reduce(
+diff --git a/blocksuite/affine/model/src/consts/connector.ts b/blocksuite/affine/model/src/consts/connector.ts
+index 42d0e3dce7..651ac07806 100644
+--- a/blocksuite/affine/model/src/consts/connector.ts
++++ b/blocksuite/affine/model/src/consts/connector.ts
+@@ -31,6 +31,9 @@ export enum ConnectorMode {
+   Straight,
+   Orthogonal,
+   Curve,
++  Rounded,
+ }
+ 
+ export const DEFAULT_CONNECTOR_MODE = ConnectorMode.Curve;
++
++export const DEFAULT_CONNECTOR_CORNER_RADIUS = 20;
+diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
+index 86917dcac3..8dbb813a89 100644
+--- a/blocksuite/affine/model/src/elements/connector/connector.ts
++++ b/blocksuite/affine/model/src/elements/connector/connector.ts
+@@ -29,6 +29,7 @@ import {
+   CONNECTOR_LABEL_MAX_WIDTH,
+   ConnectorLabelOffsetAnchor,
+   ConnectorMode,
++  DEFAULT_CONNECTOR_CORNER_RADIUS,
+   DEFAULT_CONNECTOR_MODE,
+   DEFAULT_ROUGHNESS,
+   FontFamily,
+@@ -58,6 +59,7 @@ export const getConnectorModeName = (mode: ConnectorMode) => {
+     [ConnectorMode.Straight]: 'Straight',
+     [ConnectorMode.Orthogonal]: 'Elbowed',
+     [ConnectorMode.Curve]: 'Curve',
++    [ConnectorMode.Rounded]: 'Rounded',
+   }[mode];
+ };
+ 
+@@ -98,6 +100,7 @@ export type ConnectorElementProps = BaseElementProps & {
+   rough?: boolean;
+   source: Connection;
+   target: Connection;
++  cornerRadius?: number;
+ 
+   frontEndpointStyle?: PointStyle;
+   rearEndpointStyle?: PointStyle;
+@@ -478,6 +481,9 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+   @field()
+   accessor mode: ConnectorMode = DEFAULT_CONNECTOR_MODE;
+ 
++  @field()
++  accessor cornerRadius: number = DEFAULT_CONNECTOR_CORNER_RADIUS;
++
+   @derive((path: PointLocation[], instance) => {
+     const { x, y } = instance;
+ 
+-- 
+2.53.0
+

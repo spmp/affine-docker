@@ -1,0 +1,199 @@
+From d405a75cca8aad676f1a7389c7aa688da26c2308 Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Fri, 6 Feb 2026 18:57:03 -0700
+Subject: [PATCH 14/18] Make jumps more efficient
+
+---
+ .../src/components/connector-handle.ts        | 40 ++++++++-----------
+ .../gfx/connector/src/connector-watcher.ts    | 19 ++++-----
+ .../gfx/connector/src/jump-calculator.ts      | 26 +++++++++++-
+ 3 files changed, 48 insertions(+), 37 deletions(-)
+
+diff --git a/blocksuite/affine/gfx/connector/src/components/connector-handle.ts b/blocksuite/affine/gfx/connector/src/components/connector-handle.ts
+index 684d185776..00072b7b1b 100644
+--- a/blocksuite/affine/gfx/connector/src/components/connector-handle.ts
++++ b/blocksuite/affine/gfx/connector/src/components/connector-handle.ts
+@@ -24,7 +24,10 @@ import { property, query } from 'lit/decorators.js';
+ import { styleMap } from 'lit/directives/style-map.js';
+ 
+ import type { ConnectionOverlay } from '../connector-manager';
+-import { updateConnectorJumps as calculateConnectorJumps } from '../jump-calculator';
++import {
++  buildJumpOrder,
++  updateConnectorJumps as calculateConnectorJumps,
++} from '../jump-calculator';
+ import {
+   type ConnectorSegment,
+   constrainDrag,
+@@ -88,6 +91,9 @@ export class EdgelessConnectorHandle extends WithDisposable(LitElement) {
+   /** Starting mouse position when segment drag began */
+   private _dragStartPos: IVec = [0, 0];
+ 
++  /** Cached z-order map used during drag to avoid resorting every move */
++  private _jumpOrderMap: Map<string, number> | null = null;
++
+   get connectionOverlay() {
+     return this.std.get(OverlayIdentifier('connection')) as ConnectionOverlay;
+   }
+@@ -229,19 +235,14 @@ export class EdgelessConnectorHandle extends WithDisposable(LitElement) {
+           'connector'
+         ) as ConnectorElementModel[] | undefined;
+         if (allConnectors) {
+-          const ordered = [...allConnectors].sort((a, b) =>
+-            a.index.localeCompare(b.index)
+-          );
+-          const orderMap = new Map(
+-            ordered.map((conn, index) => [conn.id, index])
+-          );
+-          const connectorOrder = orderMap.get(connector.id) ?? 0;
+-          const belowConnectors = ordered.filter(
+-            other => (orderMap.get(other.id) ?? 0) < connectorOrder
+-          );
++          if (!this._jumpOrderMap) {
++            const { orderMap } = buildJumpOrder(allConnectors);
++            this._jumpOrderMap = orderMap;
++          }
+           const routedPoints = calculateConnectorJumps(
+             connector,
+-            belowConnectors
++            allConnectors,
++            this._jumpOrderMap
+           );
+           connector.routedPoints =
+             routedPoints.length > 0 ? routedPoints : null;
+@@ -263,6 +264,7 @@ export class EdgelessConnectorHandle extends WithDisposable(LitElement) {
+     const onUp = () => {
+       const draggedSegmentIndex = this._draggingSegmentIndex;
+       this._draggingSegmentIndex = -1;
++      this._jumpOrderMap = null;
+ 
+       const applySubsumption = (path: IVec[]) => {
+         if (path.length < 4) return path;
+@@ -394,24 +396,16 @@ export class EdgelessConnectorHandle extends WithDisposable(LitElement) {
+         | ConnectorElementModel[]
+         | undefined;
+       if (allConnectors && allConnectors.length > 0) {
+-        const ordered = [...allConnectors].sort((a, b) =>
+-          a.index.localeCompare(b.index)
+-        );
+-        const orderMap = new Map(
+-          ordered.map((conn, index) => [conn.id, index])
+-        );
++        const { ordered, orderMap } = buildJumpOrder(allConnectors);
+         ordered.forEach(connectorToUpdate => {
+           if (connectorToUpdate.jumpStyle === 'none') {
+             connectorToUpdate.routedPoints = null;
+             return;
+           }
+-          const connectorOrder = orderMap.get(connectorToUpdate.id) ?? 0;
+-          const belowConnectors = ordered.filter(
+-            other => (orderMap.get(other.id) ?? 0) < connectorOrder
+-          );
+           const routedPoints = calculateConnectorJumps(
+             connectorToUpdate,
+-            belowConnectors
++            allConnectors,
++            orderMap
+           );
+           connectorToUpdate.routedPoints =
+             routedPoints.length > 0 ? routedPoints : null;
+diff --git a/blocksuite/affine/gfx/connector/src/connector-watcher.ts b/blocksuite/affine/gfx/connector/src/connector-watcher.ts
+index 18492e3ef5..fa632c2cc3 100644
+--- a/blocksuite/affine/gfx/connector/src/connector-watcher.ts
++++ b/blocksuite/affine/gfx/connector/src/connector-watcher.ts
+@@ -7,7 +7,10 @@ import type { ConnectorElementModel } from '@blocksuite/affine-model';
+ import type { GfxModel } from '@blocksuite/std/gfx';
+ 
+ import { ConnectorPathGenerator } from './connector-manager';
+-import { updateConnectorJumps as calculateConnectorJumps } from './jump-calculator';
++import {
++  buildJumpOrder,
++  updateConnectorJumps as calculateConnectorJumps,
++} from './jump-calculator';
+ 
+ export const connectorWatcher: SurfaceMiddleware = (
+   surface: SurfaceBlockModel
+@@ -38,26 +41,18 @@ export const connectorWatcher: SurfaceMiddleware = (
+     const allConnectors = Array.from(
+       surface.getElementsByType('connector')
+     ) as ConnectorElementModel[];
+-    const orderedConnectors = [...allConnectors].sort((a, b) =>
+-      a.index.localeCompare(b.index)
+-    );
+-    const orderMap = new Map(
+-      orderedConnectors.map((connector, index) => [connector.id, index])
+-    );
++    const { orderMap } = buildJumpOrder(allConnectors);
+ 
+     connectors.forEach(connector => {
+       if (
+         connector.jumpStyle !== 'none' &&
+         connector.absolutePath.length >= 2
+       ) {
+-        const connectorOrder = orderMap.get(connector.id) ?? 0;
+-        const belowConnectors = orderedConnectors.filter(
+-          other => (orderMap.get(other.id) ?? 0) < connectorOrder
+-        );
+         // Calculate jump points based on intersections
+         const routedPoints = calculateConnectorJumps(
+           connector,
+-          belowConnectors
++          allConnectors,
++          orderMap
+         );
+         connector.routedPoints = routedPoints.length > 0 ? routedPoints : null;
+       } else {
+diff --git a/blocksuite/affine/gfx/connector/src/jump-calculator.ts b/blocksuite/affine/gfx/connector/src/jump-calculator.ts
+index 074f94fcd8..ff7b595ee8 100644
+--- a/blocksuite/affine/gfx/connector/src/jump-calculator.ts
++++ b/blocksuite/affine/gfx/connector/src/jump-calculator.ts
+@@ -14,6 +14,21 @@ export interface RoutedPoint {
+   y: number;
+ }
+ 
++export type JumpOrder = {
++  ordered: ConnectorElementModel[];
++  orderMap: Map<string, number>;
++};
++
++export function buildJumpOrder(connectors: ConnectorElementModel[]): JumpOrder {
++  const ordered = [...connectors].sort((a, b) =>
++    a.index.localeCompare(b.index)
++  );
++  const orderMap = new Map(
++    ordered.map((connector, index) => [connector.id, index])
++  );
++  return { ordered, orderMap };
++}
++
+ /**
+  * Calculate line segment intersection point.
+  * Returns null if segments don't intersect or are parallel.
+@@ -66,7 +81,8 @@ function lineIntersection(
+  */
+ export function updateConnectorJumps(
+   connector: ConnectorElementModel,
+-  allConnectors: ConnectorElementModel[]
++  allConnectors: ConnectorElementModel[],
++  orderMap?: Map<string, number>
+ ): RoutedPoint[] {
+   const { absolutePath: path, jumpStyle } = connector;
+ 
+@@ -102,7 +118,13 @@ export function updateConnectorJumps(
+         continue;
+       }
+ 
+-      // Z-order filtering should be handled by the caller.
++      if (orderMap) {
++        const connectorOrder = orderMap.get(connector.id) ?? 0;
++        const otherOrder = orderMap.get(other.id) ?? 0;
++        if (otherOrder >= connectorOrder) {
++          continue;
++        }
++      }
+ 
+       const otherPath = other.absolutePath;
+       if (!otherPath || otherPath.length < 2) continue;
+-- 
+2.53.0
+
