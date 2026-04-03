@@ -18,6 +18,11 @@ This setup is originally based on work by **Sander Sneekes**:
 - Optionally applies patch packs before build.
 - Optionally composes private branches (host hooks + extensions from your fork).
 
+Mode switch:
+
+- `APPLY_PRIVATE_BRANCHES=true` -> branch-compose mode
+- `APPLY_PRIVATE_BRANCHES=false` (default) -> local patch mode
+
 ## Main files
 
 - `Dockerfile` - main build/runtime image definition
@@ -49,6 +54,12 @@ Suggested layout:
 - `patches/01-host-hooks/*.patch`
 - `patches/05-connector-core/*.patch`
 
+Ordering rule:
+
+- All `.patch` files under `patches/` are applied recursively.
+- Apply order is case-insensitive lexical order (`0-9A-Z`, case not significant).
+- Use numeric prefixes to control phase ordering (`01-`, `05-`, `10-`, etc.).
+
 Build command:
 
 ```bash
@@ -62,7 +73,7 @@ docker build \
   --build-arg GIT_USER_EMAIL="affine-docker-builder@local" \
   --build-arg TOOLING_REPO=https://github.com/spmp/affine-docker.git \
   --build-arg TOOLING_REF=main \
-  --build-arg APPLY_LOCAL_PATCHES=true \
+  --build-arg APPLY_PRIVATE_BRANCHES=false \
   --build-arg PATCHES_REQUIRED=true \
   .
 ```
@@ -73,6 +84,7 @@ Notes:
 - Apply order is lexical by file path.
 - Build fails fast on patch conflicts and prints conflict files.
 - For deterministic patch builds, prefer pinning `GIT_TAG` to the commit your patch pack was generated from.
+- If using local patches, keep host hooks in an earlier lexical path (e.g. `01-host-hooks`) so they apply before feature packs.
 
 ## Optional workflow (branch composition)
 
@@ -84,3 +96,12 @@ You can compose branches from a private fork during build:
 - `EXT_BRANCHES=ext/connector-kit,ext/another-feature`
 
 This mode is stricter and requires clean branch ancestry.
+
+Branch compose order:
+
+1. Host hooks branch is applied first.
+2. Extension branches are applied in the exact order listed in `EXT_BRANCHES`.
+
+Important:
+
+- Branch mode and patch mode are mutually exclusive by design.

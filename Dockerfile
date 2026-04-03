@@ -14,7 +14,6 @@ ARG TOOLING_REPO=https://github.com/spmp/affine-docker.git
 ARG TOOLING_REF=main
 ARG TOOLING_PATCH_DIR=patches
 ARG TOOLING_SCRIPTS_DIR=scripts
-ARG APPLY_LOCAL_PATCHES=false
 ARG PATCHES_REQUIRED=true
 ARG PRIVATE_REPO=https://github.com/spmp/AFFiNE.git
 ARG HOST_HOOKS_BRANCH=platform/host-hooks
@@ -63,8 +62,10 @@ RUN if [ "${GIT_DEPTH}" = "0" ]; then \
 RUN git config user.name "${GIT_USER_NAME}" && \
     git config user.email "${GIT_USER_EMAIL}"
 
-# Apply local patch set (recommended, deterministic path)
-RUN if [ "${APPLY_LOCAL_PATCHES}" = "true" ]; then \
+# Compose strategy switch:
+# - APPLY_PRIVATE_BRANCHES=true  => compose host/ext branches from PRIVATE_REPO
+# - APPLY_PRIVATE_BRANCHES=false => apply local patch packs from TOOLING_REPO
+RUN if [ "${APPLY_PRIVATE_BRANCHES}" != "true" ]; then \
       /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh \
         /affine \
         /tmp/affine-docker-tooling/${TOOLING_PATCH_DIR} \

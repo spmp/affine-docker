@@ -38,10 +38,11 @@ fi
 
 git -C "$REPO_PATH" fetch private "$HOST_HOOKS_BRANCH"
 
+HOST_BASE_REF="$BASE_REF"
 if ! git -C "$REPO_PATH" merge-base --is-ancestor "$BASE_REF" "private/$HOST_HOOKS_BRANCH"; then
-  echo "Error: private/$HOST_HOOKS_BRANCH is not based on $BASE_REF"
-  echo "Fix: rebase $HOST_HOOKS_BRANCH onto the same canary base before building"
-  exit 1
+  HOST_BASE_REF="$(git -C "$REPO_PATH" merge-base "$BASE_REF" "private/$HOST_HOOKS_BRANCH")"
+  echo "Warning: private/$HOST_HOOKS_BRANCH is not directly based on $BASE_REF"
+  echo "Using merge-base for host range: $HOST_BASE_REF"
 fi
 
 echo "=== Base ref ==="
@@ -50,7 +51,7 @@ git -C "$REPO_PATH" show -s --oneline "$BASE_REF"
 echo "=== Host hooks head ==="
 git -C "$REPO_PATH" show -s --oneline "private/$HOST_HOOKS_BRANCH"
 
-HOST_COMMITS="$(git -C "$REPO_PATH" rev-list --reverse --no-merges "$BASE_REF..private/$HOST_HOOKS_BRANCH")"
+HOST_COMMITS="$(git -C "$REPO_PATH" rev-list --reverse --no-merges "$HOST_BASE_REF..private/$HOST_HOOKS_BRANCH")"
 HOST_COUNT="$(printf '%s\n' "$HOST_COMMITS" | sed '/^$/d' | wc -l | tr -d ' ')"
 
 echo "=== Host hooks commit count ==="
@@ -85,16 +86,17 @@ if [ -n "$EXT_BRANCHES_CSV" ]; then
 
     git -C "$REPO_PATH" fetch private "$ext_branch"
 
+    EXT_BASE_REF="private/$HOST_HOOKS_BRANCH"
     if ! git -C "$REPO_PATH" merge-base --is-ancestor "private/$HOST_HOOKS_BRANCH" "private/$ext_branch"; then
-      echo "Error: private/$ext_branch is not based on private/$HOST_HOOKS_BRANCH"
-      echo "Fix: rebase $ext_branch onto $HOST_HOOKS_BRANCH before building"
-      exit 1
+      EXT_BASE_REF="$(git -C "$REPO_PATH" merge-base "private/$HOST_HOOKS_BRANCH" "private/$ext_branch")"
+      echo "Warning: private/$ext_branch is not directly based on private/$HOST_HOOKS_BRANCH"
+      echo "Using merge-base for extension range ($ext_branch): $EXT_BASE_REF"
     fi
 
     echo "=== Extension head ($ext_branch) ==="
     git -C "$REPO_PATH" show -s --oneline "private/$ext_branch"
 
-    EXT_COMMITS="$(git -C "$REPO_PATH" rev-list --reverse --no-merges "private/$HOST_HOOKS_BRANCH..private/$ext_branch")"
+    EXT_COMMITS="$(git -C "$REPO_PATH" rev-list --reverse --no-merges "$EXT_BASE_REF..private/$ext_branch")"
     EXT_COUNT="$(printf '%s\n' "$EXT_COMMITS" | sed '/^$/d' | wc -l | tr -d ' ')"
 
     echo "=== Extension commit count ($ext_branch) ==="

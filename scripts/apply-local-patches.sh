@@ -32,7 +32,7 @@ if [ ! -d "$PATCH_ROOT" ]; then
   exit 0
 fi
 
-mapfile -t PATCH_FILES < <(find "$PATCH_ROOT" -type f -name '*.patch' | sort)
+mapfile -t PATCH_FILES < <(find "$PATCH_ROOT" -type f -name '*.patch' | LC_ALL=C sort -f)
 
 if [ "${#PATCH_FILES[@]}" -eq 0 ]; then
   if [ "$PATCHES_REQUIRED" = "true" ]; then

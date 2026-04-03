@@ -9,7 +9,10 @@ Recommended layout:
 
 Patches are discovered recursively and applied in lexical order.
 
+Ordering is case-insensitive lexical (`0-9A-Z`, case not significant).
+Use numeric directory prefixes to enforce phase order.
+
 Build args:
 
-- `APPLY_LOCAL_PATCHES=true` to enable patch application.
+- `APPLY_PRIVATE_BRANCHES=false` to use local patch application mode (default).
 - `PATCHES_REQUIRED=true` to fail build when no patches are found.
