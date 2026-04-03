@@ -2,6 +2,8 @@
 
 Docker build setup for running a self-hosted AFFiNE image with optional customizations.
 
+Design goal: the `Dockerfile` is sufficient. Scripts and patch packs are pulled by git during build.
+
 ## Attribution
 
 This setup is originally based on work by **Sander Sneekes**:
@@ -11,20 +13,33 @@ This setup is originally based on work by **Sander Sneekes**:
 ## What this repo does
 
 - Clones AFFiNE from a configurable repo/branch at build time.
+- Pulls tooling (scripts + patches) from a configurable tooling repo.
 - Builds server + web/admin/mobile artifacts.
-- Optionally applies local patch packs before build.
-- Optionally composes private branches (host hooks + extensions).
+- Optionally applies patch packs before build.
+- Optionally composes private branches (host hooks + extensions from your fork).
 
 ## Main files
 
 - `Dockerfile` - main build/runtime image definition
 - `scripts/apply-local-patches.sh` - applies `.patch` files via `git am --3way`
 - `scripts/compose-private-branches.sh` - optional branch composition helper
-- `patches/` - local patch packs (recursive, lexical apply order)
+- `patches/` - patch packs (recursive, lexical apply order)
 
-## Recommended workflow (local patches)
+## Default repos/branches
 
-Keep custom changes as patch files inside this repo.
+- Upstream AFFiNE source:
+  - `GIT_REPO=https://github.com/toeverything/AFFiNE.git`
+  - `GIT_TAG=canary`
+- Tooling + patches source:
+  - `TOOLING_REPO=https://github.com/spmp/affine-docker.git`
+  - `TOOLING_REF=main`
+- Private extension source:
+  - `PRIVATE_REPO=https://github.com/spmp/AFFiNE.git`
+  - `HOST_HOOKS_BRANCH=platform/host-hooks`
+
+## Recommended workflow (patch packs)
+
+Keep custom changes as patch files in the tooling repo (`TOOLING_REPO`) under `patches/`.
 
 Suggested layout:
 
@@ -39,6 +54,8 @@ docker build \
   -t affine:local-patched \
   --build-arg GIT_REPO=https://github.com/toeverything/AFFiNE.git \
   --build-arg GIT_TAG=canary \
+  --build-arg TOOLING_REPO=https://github.com/spmp/affine-docker.git \
+  --build-arg TOOLING_REF=main \
   --build-arg APPLY_LOCAL_PATCHES=true \
   --build-arg PATCHES_REQUIRED=true \
   .
@@ -46,7 +63,7 @@ docker build \
 
 Notes:
 
-- Patches are applied recursively from `patches/`.
+- Patches are applied recursively from `${TOOLING_PATCH_DIR}` (default `patches`).
 - Apply order is lexical by file path.
 - Build fails fast on patch conflicts and prints conflict files.
 
@@ -55,7 +72,7 @@ Notes:
 You can compose branches from a private fork during build:
 
 - `APPLY_PRIVATE_BRANCHES=true`
-- `PRIVATE_REPO=<your-fork-url>`
+- `PRIVATE_REPO=https://github.com/spmp/AFFiNE.git` (default)
 - `HOST_HOOKS_BRANCH=platform/host-hooks`
 - `EXT_BRANCHES=ext/connector-kit,ext/another-feature`
 

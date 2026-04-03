@@ -7,9 +7,13 @@ FROM node:22-bookworm-slim AS builder
 # Build arguments
 ARG GIT_REPO=https://github.com/toeverything/AFFiNE.git
 ARG GIT_TAG=canary
+ARG TOOLING_REPO=https://github.com/spmp/affine-docker.git
+ARG TOOLING_REF=main
+ARG TOOLING_PATCH_DIR=patches
+ARG TOOLING_SCRIPTS_DIR=scripts
 ARG APPLY_LOCAL_PATCHES=false
 ARG PATCHES_REQUIRED=true
-ARG PRIVATE_REPO=
+ARG PRIVATE_REPO=https://github.com/spmp/AFFiNE.git
 ARG HOST_HOOKS_BRANCH=platform/host-hooks
 ARG EXT_BRANCHES=
 ARG APPLY_PRIVATE_BRANCHES=false
@@ -40,18 +44,19 @@ ENV PATH="/root/.bun/bin:$PATH"
 
 WORKDIR /affine
 
-# Copy local helper scripts and optional patch directory from affine-docker context
-COPY scripts/apply-local-patches.sh /tmp/apply-local-patches.sh
-COPY scripts/compose-private-branches.sh /tmp/compose-private-branches.sh
-COPY patches /tmp/affine-patches
-RUN chmod +x /tmp/apply-local-patches.sh /tmp/compose-private-branches.sh
+# Pull build tooling (scripts + patch packs) from affine-docker repo
+RUN git clone --depth 1 --branch ${TOOLING_REF} ${TOOLING_REPO} /tmp/affine-docker-tooling && \
+    chmod +x /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/compose-private-branches.sh
 
 # Clone repository
 RUN git clone --depth 1 --branch ${GIT_TAG} ${GIT_REPO} .
 
 # Apply local patch set (recommended, deterministic path)
 RUN if [ "${APPLY_LOCAL_PATCHES}" = "true" ]; then \
-      /tmp/apply-local-patches.sh /affine /tmp/affine-patches "${PATCHES_REQUIRED}"; \
+      /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh \
+        /affine \
+        /tmp/affine-docker-tooling/${TOOLING_PATCH_DIR} \
+        "${PATCHES_REQUIRED}"; \
     fi
 
 # Compose private host hooks + extension branches on top of upstream canary
@@ -60,7 +65,7 @@ RUN if [ "${APPLY_PRIVATE_BRANCHES}" = "true" ]; then \
         echo "APPLY_PRIVATE_BRANCHES=true requires PRIVATE_REPO"; \
         exit 1; \
       fi; \
-      /tmp/compose-private-branches.sh \
+      /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/compose-private-branches.sh \
         /affine \
         "origin/${GIT_TAG}" \
         "${PRIVATE_REPO}" \
