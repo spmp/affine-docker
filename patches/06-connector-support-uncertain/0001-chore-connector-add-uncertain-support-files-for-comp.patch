@@ -1,23 +1,16 @@
-From 1d1ef408fd0aa8eaae1576fded01160e163a8898 Mon Sep 17 00:00:00 2001
+From f4fd0df855d556bc0984a3f2c1bf118763d5739d Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
-Date: Sat, 24 Jan 2026 08:15:20 -0700
-Subject: [PATCH 04/18] Add waypoints and jump style properties to connector
- model
+Date: Fri, 3 Apr 2026 19:22:33 -0600
+Subject: [PATCH] chore(connector): add uncertain support files for
+ compatibility
 
-- Add JumpStyle type: 'none' | 'arc' | 'gap' | 'sharp' | 'line'
-- Add waypoints property to store user-defined routing points
-- Add jumpStyle property (default 'none')
-- Add jumpSize property (default 10px)
-
-Phase 1 complete - model schema extended for draw.io-style features.
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ---
  blocksuite/affine/gfx/shape/package.json      |  1 +
- .../model/src/elements/connector/connector.ts | 29 +++++++++++++++++++
- tools/utils/src/workspace.gen.ts              | 14 +++++++++
- yarn.lock                                     | 16 ++++++++++
- 4 files changed, 60 insertions(+)
+ .../shape/src/toolbar/shape-menu-config.ts    | 24 +++++++++++++------
+ blocksuite/affine/model/src/consts/index.ts   |  1 +
+ tools/utils/src/workspace.gen.ts              | 14 +++++++++++
+ yarn.lock                                     | 16 +++++++++++++
+ 5 files changed, 49 insertions(+), 7 deletions(-)
 
 diff --git a/blocksuite/affine/gfx/shape/package.json b/blocksuite/affine/gfx/shape/package.json
 index 730761bdb9..95002a15b4 100644
@@ -31,60 +24,65 @@ index 730761bdb9..95002a15b4 100644
      "@lit/context": "^1.1.2",
      "@preact/signals-core": "^1.8.0",
      "@types/lodash-es": "^4.17.12",
-diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
-index 8dbb813a89..4e97260631 100644
---- a/blocksuite/affine/model/src/elements/connector/connector.ts
-+++ b/blocksuite/affine/model/src/elements/connector/connector.ts
-@@ -42,6 +42,8 @@ import {
- } from '../../consts/index';
- import { type Color, DefaultTheme } from '../../themes/index';
+diff --git a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
+index ed95c6200f..065cbf33b9 100644
+--- a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
++++ b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
+@@ -33,6 +33,13 @@ export const ShapeComponentConfig: Config[] = [
+     tooltip: 'Square',
+     disabled: false,
+   },
++  {
++    name: 'roundedRect',
++    generalIcon: RoundedRectangleIcon(),
++    scribbledIcon: ScribbledRoundedRectangleIcon,
++    tooltip: 'Rounded rectangle',
++    disabled: false,
++  },
+   {
+     name: ShapeType.Ellipse,
+     generalIcon: EllipseIcon(),
+@@ -47,6 +54,10 @@ export const ShapeComponentConfig: Config[] = [
+     tooltip: 'Diamond',
+     disabled: false,
+   },
++];
++
++// Shapes available in the shape browser (More menu)
++export const ExtendedShapeConfig: Config[] = [
+   {
+     name: ShapeType.Triangle,
+     generalIcon: TriangleIcon(),
+@@ -54,13 +65,12 @@ export const ShapeComponentConfig: Config[] = [
+     tooltip: 'Triangle',
+     disabled: false,
+   },
+-  {
+-    name: 'roundedRect',
+-    generalIcon: RoundedRectangleIcon(),
+-    scribbledIcon: ScribbledRoundedRectangleIcon,
+-    tooltip: 'Rounded rectangle',
+-    disabled: false,
+-  },
++];
++
++// All shapes combined (for shape browser)
++export const AllShapeConfig: Config[] = [
++  ...ShapeComponentConfig,
++  ...ExtendedShapeConfig,
+ ];
  
-+export type JumpStyle = 'none' | 'arc' | 'gap' | 'sharp' | 'line';
-+
- export type SerializedConnection = {
-   id?: string;
-   position?: `[${number},${number}]` | PointLocation;
-@@ -104,6 +106,13 @@ export type ConnectorElementProps = BaseElementProps & {
- 
-   frontEndpointStyle?: PointStyle;
-   rearEndpointStyle?: PointStyle;
-+
-+  // Waypoints for connector routing
-+  waypoints?: IVec[];
-+
-+  // Jump styles for connector intersections
-+  jumpStyle?: JumpStyle;
-+  jumpSize?: number;
- } & ConnectorLabelProps;
- 
- export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorElementProps> {
-@@ -531,6 +540,26 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
-   @field()
-   accessor text: Y.Text | undefined = undefined;
- 
-+  /**
-+   * User-defined waypoints for connector routing.
-+   * These are intermediate control points that the connector path passes through.
-+   */
-+  @field()
-+  accessor waypoints: IVec[] | undefined = undefined;
-+
-+  /**
-+   * Jump style for rendering connector intersections.
-+   * Options: 'none', 'arc', 'gap', 'sharp', 'line'
-+   */
-+  @field('none' as JumpStyle)
-+  accessor jumpStyle!: JumpStyle;
-+
-+  /**
-+   * Jump size in pixels for rendering jumps at intersections.
-+   */
-+  @field(10)
-+  accessor jumpSize!: number;
-+
-   @local()
-   accessor xywh: SerializedXYWH = '[0,0,0,0]';
- }
+ export const ShapeComponentConfigMap = ShapeComponentConfig.reduce(
+diff --git a/blocksuite/affine/model/src/consts/index.ts b/blocksuite/affine/model/src/consts/index.ts
+index e374e9398c..47da7f3f76 100644
+--- a/blocksuite/affine/model/src/consts/index.ts
++++ b/blocksuite/affine/model/src/consts/index.ts
+@@ -1,4 +1,5 @@
+ export * from './connector.js';
++export * from './connector.js';
+ export * from './doc.js';
+ export * from './edgeless-text.js';
+ export * from './image.js';
 diff --git a/tools/utils/src/workspace.gen.ts b/tools/utils/src/workspace.gen.ts
 index 98faf5aec3..c8f54a120f 100644
 --- a/tools/utils/src/workspace.gen.ts

@@ -16,6 +16,8 @@ ARG TOOLING_REF=main
 ARG TOOLING_PATCH_DIR=patches
 ARG TOOLING_SCRIPTS_DIR=scripts
 ARG PATCHES_REQUIRED=true
+ARG PATCH_INCLUDE=
+ARG PATCH_EXCLUDE=
 ARG PRIVATE_REPO=https://github.com/spmp/AFFiNE.git
 ARG HOST_HOOKS_BRANCH=platform/host-hooks
 ARG EXT_BRANCHES=
@@ -70,7 +72,9 @@ RUN if [ "${APPLY_PRIVATE_BRANCHES}" != "true" ]; then \
       /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh \
         /affine \
         /tmp/affine-docker-tooling/${TOOLING_PATCH_DIR} \
-        "${PATCHES_REQUIRED}"; \
+        "${PATCHES_REQUIRED}" \
+        "${PATCH_INCLUDE}" \
+        "${PATCH_EXCLUDE}"; \
     fi
 
 # Compose private host hooks + extension branches on top of upstream canary

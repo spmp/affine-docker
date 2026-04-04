@@ -5,7 +5,9 @@ Store `.patch` files here to apply custom AFFiNE changes during Docker builds.
 Recommended layout:
 
 - `patches/01-host-hooks/*.patch`
-- `patches/05-connector-core/*.patch`
+- `patches/05-connector-runtime/*.patch`
+- `patches/06-connector-support-uncertain/*.patch`
+- `patches/07-connector-tests/*.patch`
 
 Patches are discovered recursively and applied in lexical order.
 

@@ -39,6 +39,8 @@ Mode switch:
 - `BUILD_VERSION=` (optional SemVer override, e.g. `0.26.3-canary.1`)
 - `GIT_USER_NAME=AFFiNE Docker Builder`
 - `GIT_USER_EMAIL=affine-docker-builder@local`
+- `PATCH_INCLUDE=` (optional comma list; match by number/prefix/full name)
+- `PATCH_EXCLUDE=` (optional comma list; same matching rules)
 - Tooling + patches source:
   - `TOOLING_REPO=https://github.com/spmp/affine-docker.git`
   - `TOOLING_REF=main`
@@ -53,7 +55,9 @@ Keep custom changes as patch files in the tooling repo (`TOOLING_REPO`) under `p
 Suggested layout:
 
 - `patches/01-host-hooks/*.patch`
-- `patches/05-connector-core/*.patch`
+- `patches/05-connector-runtime/*.patch`
+- `patches/06-connector-support-uncertain/*.patch`
+- `patches/07-connector-tests/*.patch`
 
 Ordering rule:
 
@@ -77,6 +81,19 @@ docker build \
   --build-arg APPLY_PRIVATE_BRANCHES=false \
   --build-arg PATCHES_REQUIRED=true \
   .
+
+Patch selection examples:
+
+```bash
+# Apply only host-hooks and connector runtime
+--build-arg PATCH_INCLUDE=01,05-connector-runtime
+
+# Apply all except uncertain support layer
+--build-arg PATCH_EXCLUDE=06-connector-support-uncertain
+
+# Apply only one exact patch by filename prefix
+--build-arg PATCH_INCLUDE=0001-feat-connector-curated-runtime-core
+```
 ```
 
 Notes:
