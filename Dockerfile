@@ -8,6 +8,7 @@ FROM node:22-bookworm-slim AS builder
 ARG GIT_REPO=https://github.com/toeverything/AFFiNE.git
 ARG GIT_TAG=canary
 ARG GIT_DEPTH=0
+ARG BUILD_VERSION=
 ARG GIT_USER_NAME=AFFiNE Docker Builder
 ARG GIT_USER_EMAIL=affine-docker-builder@local
 ARG TOOLING_REPO=https://github.com/spmp/affine-docker.git
@@ -86,8 +87,11 @@ RUN if [ "${APPLY_PRIVATE_BRANCHES}" = "true" ]; then \
         "${EXT_BRANCHES}"; \
     fi
 
-# Update all package.json versions to match git tag
-RUN find . -name "package.json" -type f -exec sed -i 's/"version": "[^"]*"/"version": "'${GIT_TAG#v}'"/' {} \;
+# Optionally override package versions with a valid SemVer value.
+# Do NOT use floating labels like "canary" here; many runtime checks require SemVer.
+RUN if [ -n "${BUILD_VERSION}" ]; then \
+      find . -name "package.json" -type f -exec sed -i 's/"version": "[^"]*"/"version": "'"${BUILD_VERSION}"'"/' {} \;; \
+    fi
 
 # Update all ts files to replace default AI model
 RUN find . -name "*.ts" -type f -exec sed -i 's/claude-sonnet-4@20250514/'"$AI_MODEL"'/g' {} \;
@@ -126,7 +130,7 @@ ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 ENV SENTRYCLI_SKIP_DOWNLOAD=1
 
 # Install ALL dependencies (don't use workspaces focus yet)
-RUN yarn install --immutable --inline-builds
+RUN yarn install --inline-builds
 
 # Fix permissions
 RUN chmod +x node_modules/.bin/* || true
@@ -139,7 +143,7 @@ RUN cp ./packages/backend/native/server-native.node ./packages/backend/native/se
 RUN cp ./packages/backend/native/server-native.node ./packages/backend/native/server-native.armv7.node
 
 # IMPORTANT: Reinstall ALL dependencies after native build
-RUN yarn install --immutable --inline-builds
+RUN yarn install --inline-builds
 
 # Build ALL components in the right order
 ENV BUILD_TYPE=${BUILD_TYPE}
@@ -153,7 +157,7 @@ RUN yarn workspaces focus @affine/server @types/affine__env
 RUN yarn workspace @affine/server build
 
 # Reinstall ALL dependencies for frontend builds
-RUN yarn install --immutable --inline-builds
+RUN yarn install --inline-builds
 
 # Build frontend components (now all dependencies should be available)
 RUN yarn affine @affine/web build

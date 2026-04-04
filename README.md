@@ -36,6 +36,7 @@ Mode switch:
 - `GIT_REPO=https://github.com/toeverything/AFFiNE.git`
 - `GIT_TAG=canary`
 - `GIT_DEPTH=0` (full history; recommended for reliable `git am --3way`)
+- `BUILD_VERSION=` (optional SemVer override, e.g. `0.26.3-canary.1`)
 - `GIT_USER_NAME=AFFiNE Docker Builder`
 - `GIT_USER_EMAIL=affine-docker-builder@local`
 - Tooling + patches source:
@@ -84,6 +85,7 @@ Notes:
 - Apply order is lexical by file path.
 - Build fails fast on patch conflicts and prints conflict files.
 - For deterministic patch builds, prefer pinning `GIT_TAG` to the commit your patch pack was generated from.
+- If you set `BUILD_VERSION`, it must be valid SemVer. Values like `canary` are invalid and can break auth/runtime flows.
 - If using local patches, keep host hooks in an earlier lexical path (e.g. `01-host-hooks`) so they apply before feature packs.
 
 ## Optional workflow (branch composition)
