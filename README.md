@@ -58,6 +58,7 @@ Suggested layout:
 - `patches/05-connector-runtime/*.patch`
 - `patches/06-connector-support-uncertain/*.patch`
 - `patches/07-connector-tests/*.patch`
+- `patches/09-shape-edge-nodes-runtime/*.patch` (optional seed; disabled by default)
 
 Ordering rule:
 

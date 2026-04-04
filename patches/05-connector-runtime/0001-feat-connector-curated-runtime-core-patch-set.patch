@@ -1,12 +1,12 @@
-From 2ec4e08247b5ed2df6a148e52ec357bad209d344 Mon Sep 17 00:00:00 2001
+From 3c23c120273544efe52e8934e441c7c0b97c0d87 Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
-Date: Fri, 3 Apr 2026 19:22:27 -0600
+Date: Fri, 3 Apr 2026 21:03:03 -0600
 Subject: [PATCH] feat(connector): curated runtime core patch set
 
 ---
  .../root/src/edgeless/configs/toolbar/more.ts |  164 ++-
  .../src/components/connector-handle.ts        |  395 +++++-
- .../gfx/connector/src/connector-manager.ts    |  306 ++++-
+ .../gfx/connector/src/connector-manager.ts    |  150 ++-
  .../gfx/connector/src/connector-watcher.ts    |  109 +-
  blocksuite/affine/gfx/connector/src/index.ts  |    2 +
  .../gfx/connector/src/jump-calculator.ts      |  240 ++++
@@ -21,7 +21,7 @@ Subject: [PATCH] feat(connector): curated runtime core patch set
  .../connector/src/utils/connector-segment.ts  | 1096 +++++++++++++++++
  .../affine/model/src/consts/connector.ts      |    4 +
  .../model/src/elements/connector/connector.ts |   44 +
- 17 files changed, 3158 insertions(+), 162 deletions(-)
+ 17 files changed, 3025 insertions(+), 139 deletions(-)
  create mode 100644 blocksuite/affine/gfx/connector/src/jump-calculator.ts
  create mode 100644 blocksuite/affine/gfx/connector/src/toolbar/icons.ts
  create mode 100644 blocksuite/affine/gfx/connector/src/utils/connector-segment.ts
@@ -692,193 +692,18 @@ index f72fd7de7f..00072b7b1b 100644
      `;
    }
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 574dca11da..75b216b918 100644
+index 574dca11da..948093db11 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-@@ -60,16 +60,88 @@ export const ConnectorEndpointLocations: IVec[] = [
- ];
- 
- export const ConnectorEndpointLocationsOnTriangle: IVec[] = [
--  // At top
-+  // At top (apex)
-   [0.5, 0],
--  // At right
-+  // At right side
-   [0.75, 0.5],
--  // At bottom
-+  // At bottom: left quarter, center, right quarter
-+  [0.25, 1],
-   [0.5, 1],
--  // At left
-+  [0.75, 1],
-+  // At left side
-   [0.25, 0.5],
- ];
- 
-+// Extended connection points for rectangle (16 points total)
-+export const ConnectorEndpointLocationsOnRectangle: IVec[] = [
-+  // Top edge: left quarter, center, right quarter
-+  [0.25, 0],
-+  [0.5, 0],
-+  [0.75, 0],
-+  // Top-right corner
-+  [1, 0],
-+  // Right edge: top quarter, center, bottom quarter
-+  [1, 0.25],
-+  [1, 0.5],
-+  [1, 0.75],
-+  // Bottom-right corner
-+  [1, 1],
-+  // Bottom edge: right quarter, center, left quarter
-+  [0.75, 1],
-+  [0.5, 1],
-+  [0.25, 1],
-+  // Bottom-left corner
-+  [0, 1],
-+  // Left edge: bottom quarter, center, top quarter
-+  [0, 0.75],
-+  [0, 0.5],
-+  [0, 0.25],
-+  // Top-left corner
-+  [0, 0],
-+];
-+
-+// Extended connection points for diamond (8 points total)
-+export const ConnectorEndpointLocationsOnDiamond: IVec[] = [
-+  // Top
-+  [0.5, 0],
-+  // Top-right (halfway between top and right)
-+  [0.75, 0.25],
-+  // Right
-+  [1, 0.5],
-+  // Bottom-right (halfway between right and bottom)
-+  [0.75, 0.75],
-+  // Bottom
-+  [0.5, 1],
-+  // Bottom-left (halfway between bottom and left)
-+  [0.25, 0.75],
-+  // Left
-+  [0, 0.5],
-+  // Top-left (halfway between left and top)
-+  [0.25, 0.25],
-+];
-+
-+// Extended connection points for ellipse (8 points total)
-+// Points calculated using trigonometry to sit on the actual ellipse curve
-+// Formula: x = 0.5 + 0.5 * cos(angle), y = 0.5 + 0.5 * sin(angle)
-+export const ConnectorEndpointLocationsOnEllipse: IVec[] = [
-+  // Top (270°)
-+  [0.5, 0],
-+  // Top-right (315°)
-+  [0.8536, 0.1464],
-+  // Right (0°)
-+  [1, 0.5],
-+  // Bottom-right (45°)
-+  [0.8536, 0.8536],
-+  // Bottom (90°)
-+  [0.5, 1],
-+  // Bottom-left (135°)
-+  [0.1464, 0.8536],
-+  // Left (180°)
-+  [0, 0.5],
-+  // Top-left (225°)
-+  [0.1464, 0.1464],
-+];
-+
- export function isConnectorWithLabel(model: GfxModel | GfxLocalElementModel) {
-   return model instanceof ConnectorElementModel && model.hasLabel();
- }
-@@ -130,31 +202,70 @@ export function isConnectorAndBindingsAllSelected(
-   return false;
- }
- 
-+/**
-+ * Get connection point locations for a given element based on its shape type
-+ */
-+export function getConnectionLocationsForElement(ele: GfxModel): IVec[] {
-+  // Check if element is a ShapeElementModel and get shape-specific locations
-+  if ('shapeType' in ele) {
-+    const shapeType = (ele as any).shapeType;
-+    switch (shapeType) {
-+      case 'rect':
-+        return ConnectorEndpointLocationsOnRectangle;
-+      case 'triangle':
-+        return ConnectorEndpointLocationsOnTriangle;
-+      case 'diamond':
-+        return ConnectorEndpointLocationsOnDiamond;
-+      case 'ellipse':
-+        return ConnectorEndpointLocationsOnEllipse;
-+      default:
-+        return ConnectorEndpointLocations;
-+    }
-+  }
-+  return ConnectorEndpointLocations;
-+}
-+
- export function getAnchors(ele: GfxModel) {
-   const bound = Bound.deserialize(ele.xywh);
--  const offset = 10;
-   const anchors: { point: PointLocation; coord: IVec }[] = [];
-   const rotate = ele.rotate;
-+  const locations = getConnectionLocationsForElement(ele);
-+
-+  // For each connection location (relative coordinates), calculate the actual point
-+  locations.forEach(location => {
-+    // Convert relative location to absolute position
-+    const absPoint: IVec = [
-+      bound.x + location[0] * bound.w,
-+      bound.y + location[1] * bound.h,
-+    ];
- 
--  (
--    [
--      [bound.center[0], bound.y - offset],
--      [bound.center[0], bound.maxY + offset],
--      [bound.x - offset, bound.center[1]],
--      [bound.maxX + offset, bound.center[1]],
--    ] satisfies IVec[]
--  )
--    .map(vec => getPointFromBoundsWithRotation({ ...bound, rotate }, vec))
--    .forEach(vec => {
--      const rst = ele.getLineIntersections(bound.center, vec);
--      if (!rst) return;
--
--      const originPoint = getPointFromBoundsWithRotation(
--        { ...bound, rotate: -rotate },
--        rst[0]
--      );
--      anchors.push({ point: rst[0], coord: bound.toRelative(originPoint) });
-+    // Apply rotation if needed
-+    const rotatedPoint = getPointFromBoundsWithRotation(
-+      { ...bound, rotate },
-+      absPoint
-+    );
-+
-+    // Get the intersection point with the shape's edge
-+    const rst = ele.getLineIntersections(bound.center, rotatedPoint);
-+    if (!rst) {
-+      // If no intersection, use the calculated point directly
-+      anchors.push({
-+        point: PointLocation.fromVec(rotatedPoint),
-+        coord: location,
-+      });
-+      return;
-+    }
-+
-+    const originPoint = getPointFromBoundsWithRotation(
-+      { ...bound, rotate: -rotate },
-+      rst[0]
-+    );
-+    anchors.push({
-+      point: PointLocation.fromVec(rst[0]),
-+      coord: bound.toRelative(originPoint),
+@@ -155,6 +155,7 @@ export function getAnchors(ele: GfxModel) {
+       );
+       anchors.push({ point: rst[0], coord: bound.toRelative(originPoint) });
      });
-+  });
 +
    return anchors;
  }
  
-@@ -912,7 +1023,7 @@ export class ConnectionOverlay extends Overlay {
+@@ -912,7 +913,7 @@ export class ConnectionOverlay extends Overlay {
      const zoom = this.gfx.viewport.zoom;
      const radius = 5 / zoom;
      const color = this._emphasisColor;
@@ -887,7 +712,7 @@ index 574dca11da..75b216b918 100644
      let lineWidth = 1 / zoom;
      if (this.sourceBounds) {
        renderRect(ctx, this.sourceBounds, color, lineWidth);
-@@ -921,13 +1032,13 @@ export class ConnectionOverlay extends Overlay {
+@@ -921,13 +922,13 @@ export class ConnectionOverlay extends Overlay {
        renderRect(ctx, this.targetBounds, color, lineWidth);
      }
  
@@ -903,7 +728,7 @@ index 574dca11da..75b216b918 100644
        ctx.fill();
        ctx.stroke();
        ctx.closePath();
-@@ -939,7 +1050,7 @@ export class ConnectionOverlay extends Overlay {
+@@ -939,7 +940,7 @@ export class ConnectionOverlay extends Overlay {
        ctx.arc(this.highlightPoint[0], this.highlightPoint[1], radius, 0, PI2);
        ctx.fillStyle = color;
        ctx.strokeStyle = color;
@@ -912,7 +737,7 @@ index 574dca11da..75b216b918 100644
        ctx.fill();
        ctx.stroke();
        ctx.closePath();
-@@ -1191,6 +1302,7 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1191,6 +1192,7 @@ export class ConnectorPathGenerator extends PathGenerator {
        getElementById: elementGetter ?? (() => null),
      });
      const points = path ?? instance._generateConnectorPath(connector) ?? [];
@@ -920,7 +745,7 @@ index 574dca11da..75b216b918 100644
      const bound =
        connector.mode === ConnectorMode.Curve
          ? getBezierCurveBoundingBox(getBezierParameters(points))
-@@ -1267,7 +1379,12 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1267,7 +1269,12 @@ export class ConnectorPathGenerator extends PathGenerator {
      const { mode } = connector;
      if (mode === ConnectorMode.Straight) {
        return this._generateStraightConnectorPath(connector);
@@ -934,7 +759,7 @@ index 574dca11da..75b216b918 100644
        const start = this._getConnectorEndElement(connector, 'source');
        const end = this._getConnectorEndElement(connector, 'target');
  
-@@ -1279,6 +1396,22 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1279,6 +1286,22 @@ export class ConnectorPathGenerator extends PathGenerator {
        const endBound = end
          ? Bound.from(getBoundWithRotation(rBound(end)))
          : null;
@@ -957,7 +782,7 @@ index 574dca11da..75b216b918 100644
        const path = this.generateOrthogonalConnectorPath({
          startPoint,
          endPoint,
-@@ -1292,6 +1425,123 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1292,6 +1315,123 @@ export class ConnectorPathGenerator extends PathGenerator {
      throw new Error('unknown connector mode');
    }
  

@@ -1,4 +1,4 @@
-From edd6e1d823bee6d1feccea8d9081a138c8d4d85b Mon Sep 17 00:00:00 2001
+From dca9441ab1d4ad807fd26cd50f374e666bfa993e Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Fri, 3 Apr 2026 19:22:39 -0600
 Subject: [PATCH] test(connector): add curated e2e support adjustments
