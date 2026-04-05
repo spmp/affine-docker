@@ -1,13 +1,12 @@
 From 20e7eb8d96cd720443a7dd3d3607bba04cf9ed8c Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Sat, 4 Apr 2026 19:44:24 -0600
-Subject: [PATCH 2/2] Ensure click on the hovered edge initiates a connector
+Subject: [PATCH] Ensure click on the hovered edge initiates a connector
 
 ---
  .../gfx/connector/src/connector-tool.ts       | 44 +++++++++++++++++++
  .../edgeless-connector-anchors/src/index.ts   | 10 +----
- .../e2e/edgeless/edge-nodes.spec.ts           |  9 ++--
- 3 files changed, 51 insertions(+), 12 deletions(-)
+ 2 files changed, 46 insertions(+), 8 deletions(-)
 
 diff --git a/blocksuite/affine/gfx/connector/src/connector-tool.ts b/blocksuite/affine/gfx/connector/src/connector-tool.ts
 index d601936ca2..8cb5c5a42f 100644
@@ -121,33 +120,6 @@ index 537da6aba5..155bd9923f 100644
            tool.quickConnectFromAnchor(
              [state.x, state.y],
              this._hoveredElement,
-diff --git a/tests/blocksuite/e2e/edgeless/edge-nodes.spec.ts b/tests/blocksuite/e2e/edgeless/edge-nodes.spec.ts
-index 9d47c949ff..f3493265ab 100644
---- a/tests/blocksuite/e2e/edgeless/edge-nodes.spec.ts
-+++ b/tests/blocksuite/e2e/edgeless/edge-nodes.spec.ts
-@@ -107,7 +107,9 @@ test.describe('edge nodes', () => {
-     expect(alpha).toBeGreaterThan(0);
-   });
- 
--  test('clicking an edge node starts a connector', async ({ page }) => {
-+  test('single-clicking a hovered edge node starts a connector', async ({
-+    page,
-+  }) => {
-     await edgelessCommonSetup(page);
-     const shapeId = await createRectShape(page);
-     if (!shapeId) throw new Error('shapeId is not found');
-@@ -116,9 +118,8 @@ test.describe('edge nodes', () => {
-     await page.mouse.move(anchor.x, anchor.y);
-     await page.waitForTimeout(150);
- 
--    await page.mouse.down();
--    await page.mouse.move(anchor.x + 120, anchor.y + 80);
--    await page.mouse.up();
-+    await page.mouse.click(anchor.x, anchor.y);
-+    await page.waitForTimeout(100);
- 
-     const connector = await page.evaluate(() => {
-       const root = document.querySelector('affine-edgeless-root') as any;
 -- 
 2.53.0
 
