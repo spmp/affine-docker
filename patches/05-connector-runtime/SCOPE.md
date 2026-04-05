@@ -8,6 +8,7 @@ Included scope:
 - connector manager/watcher/path/jump rendering
 - connector toolbar/menu/actions
 - connector waypoint actions in edgeless more menu
+- connector Editor settings parity for rounded mode + corner radius
 
 Excluded from runtime scope on purpose:
 

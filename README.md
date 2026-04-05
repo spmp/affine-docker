@@ -60,6 +60,14 @@ Suggested layout:
 - `patches/07-connector-tests/*.patch`
 - `patches/09-shape-edge-nodes-runtime/*.patch` (optional seed; disabled by default)
 
+Current bucket intent:
+
+- `01-host-hooks`: private platform seams and compose scripts.
+- `05-connector-runtime`: connector runtime behavior only.
+- `06-connector-support-uncertain`: investigation bucket (not final ownership).
+- `07-connector-tests`: extraction validation/test helper adjustments.
+- `09-shape-edge-nodes-runtime`: expanded anchor-density seed for shape/edge-node feature.
+
 Ordering rule:
 
 - All `.patch` files under `patches/` are applied recursively.
@@ -82,6 +90,7 @@ docker build \
   --build-arg APPLY_PRIVATE_BRANCHES=false \
   --build-arg PATCHES_REQUIRED=true \
   .
+```
 
 Patch selection examples:
 
@@ -95,12 +104,11 @@ Patch selection examples:
 # Apply only one exact patch by filename prefix
 --build-arg PATCH_INCLUDE=0001-feat-connector-curated-runtime-core
 ```
-```
 
 Notes:
 
 - Patches are applied recursively from `${TOOLING_PATCH_DIR}` (default `patches`).
-- Apply order is lexical by file path.
+- Apply order is case-insensitive lexical by file path (`0-9A-Z`, case not significant).
 - Build fails fast on patch conflicts and prints conflict files.
 - For deterministic patch builds, prefer pinning `GIT_TAG` to the commit your patch pack was generated from.
 - If you set `BUILD_VERSION`, it must be valid SemVer. Values like `canary` are invalid and can break auth/runtime flows.
