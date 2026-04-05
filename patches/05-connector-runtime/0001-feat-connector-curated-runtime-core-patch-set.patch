@@ -1,6 +1,6 @@
-From 3c23c120273544efe52e8934e441c7c0b97c0d87 Mon Sep 17 00:00:00 2001
-From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
-Date: Fri, 3 Apr 2026 21:03:03 -0600
+From cf12d760f83d5cad9d2d10020df5b59a9cfc243b Mon Sep 17 00:00:00 2001
+From: Patch Regen <patch-regen@local>
+Date: Sat, 4 Apr 2026 20:50:59 -0600
 Subject: [PATCH] feat(connector): curated runtime core patch set
 
 ---
@@ -20,8 +20,8 @@ Subject: [PATCH] feat(connector): curated runtime core patch set
  .../affine/gfx/connector/src/toolbar/icons.ts |   24 +
  .../connector/src/utils/connector-segment.ts  | 1096 +++++++++++++++++
  .../affine/model/src/consts/connector.ts      |    4 +
- .../model/src/elements/connector/connector.ts |   44 +
- 17 files changed, 3025 insertions(+), 139 deletions(-)
+ .../model/src/elements/connector/connector.ts |   49 +
+ 17 files changed, 3030 insertions(+), 139 deletions(-)
  create mode 100644 blocksuite/affine/gfx/connector/src/jump-calculator.ts
  create mode 100644 blocksuite/affine/gfx/connector/src/toolbar/icons.ts
  create mode 100644 blocksuite/affine/gfx/connector/src/utils/connector-segment.ts
@@ -3803,7 +3803,7 @@ index 42d0e3dce7..229bd14557 100644
 +// Default radius used for rounded connectors.
 +export const DEFAULT_CONNECTOR_CORNER_RADIUS = 20;
 diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
-index 86917dcac3..f3027c602f 100644
+index 86917dcac3..baec76b322 100644
 --- a/blocksuite/affine/model/src/elements/connector/connector.ts
 +++ b/blocksuite/affine/model/src/elements/connector/connector.ts
 @@ -29,6 +29,7 @@ import {
@@ -3849,7 +3849,19 @@ index 86917dcac3..f3027c602f 100644
  } & ConnectorLabelProps;
  
  export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorElementProps> {
-@@ -422,6 +434,15 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+@@ -360,6 +372,11 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+       const [x, y, w, h] = this.labelXYWH!;
+       this.labelXYWH = [x + offset[0], y + offset[1], w, h];
+     }
++
++    // Keep manual waypoints aligned when moving selected connectors.
++    if (this.waypoints && this.waypoints.length > 0) {
++      this.waypoints = this.waypoints.map(wp => Vec.add(wp, offset) as IVec);
++    }
+   }
+ 
+   resize(originalPath: PointLocation[], matrix: DOMMatrix) {
+@@ -422,6 +439,15 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
    @local()
    accessor absolutePath: PointLocation[] = [];
  
@@ -3865,7 +3877,7 @@ index 86917dcac3..f3027c602f 100644
    @field('None' as PointStyle)
    accessor frontEndpointStyle!: PointStyle;
  
-@@ -478,6 +499,9 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+@@ -478,6 +504,9 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
    @field()
    accessor mode: ConnectorMode = DEFAULT_CONNECTOR_MODE;
  
@@ -3875,7 +3887,7 @@ index 86917dcac3..f3027c602f 100644
    @derive((path: PointLocation[], instance) => {
      const { x, y } = instance;
  
-@@ -525,6 +549,26 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+@@ -525,6 +554,26 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
    @field()
    accessor text: Y.Text | undefined = undefined;
  
@@ -3901,20 +3913,7 @@ index 86917dcac3..f3027c602f 100644
 +
    @local()
    accessor xywh: SerializedXYWH = '[0,0,0,0]';
-  }
-diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
-index f3027c602f..baec76b322 100644
---- a/blocksuite/affine/model/src/elements/connector/connector.ts
-+++ b/blocksuite/affine/model/src/elements/connector/connector.ts
-@@ -372,6 +372,11 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
-      const [x, y, w, h] = this.labelXYWH!;
-      this.labelXYWH = [x + offset[0], y + offset[1], w, h];
-    }
-+
-+    // Keep manual waypoints aligned when moving selected connectors.
-+    if (this.waypoints && this.waypoints.length > 0) {
-+      this.waypoints = this.waypoints.map(wp => Vec.add(wp, offset) as IVec);
-+    }
-   }
- -- 
- 2.53.0
+ }
+-- 
+2.53.0
+

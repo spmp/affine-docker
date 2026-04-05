@@ -119,17 +119,29 @@ is_shallow_repo() {
 }
 
 for patch in "${PATCH_FILES[@]}"; do
+  rel_patch="${patch#${PATCH_ROOT}/}"
   echo "Applying patch: $(basename "$patch")"
+  echo "Patch path: $rel_patch"
+  echo "HEAD before apply: $(git -C "$REPO_PATH" rev-parse --short HEAD)"
   if ! git -C "$REPO_PATH" am --3way "$patch"; then
+    echo "Patch failed with 3-way apply: $rel_patch"
+    echo "--- git am current patch (summary) ---"
+    git -C "$REPO_PATH" am --show-current-patch=diff || true
+    echo "--- end current patch ---"
+    echo "--- git apply --check (verbose) ---"
+    git -C "$REPO_PATH" apply --check --verbose "$patch" || true
+    echo "--- end git apply --check ---"
     if is_shallow_repo; then
       echo "Patch failed on shallow clone. Fetching full history and retrying once..."
       git -C "$REPO_PATH" am --abort || true
       git -C "$REPO_PATH" fetch --unshallow || git -C "$REPO_PATH" fetch --depth=50000
       if git -C "$REPO_PATH" am --3way "$patch"; then
+        echo "Patch retry succeeded after unshallow: $rel_patch"
         continue
       fi
     fi
     echo "Patch apply failed: $patch"
+    echo "HEAD at failure: $(git -C "$REPO_PATH" rev-parse --short HEAD)"
     git -C "$REPO_PATH" status --short || true
     git -C "$REPO_PATH" diff --name-only --diff-filter=U || true
     echo "Hint: if building from floating canary, patch drift may occur. Pin GIT_TAG to the patch base commit or regenerate patches against latest canary."
