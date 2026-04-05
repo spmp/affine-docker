@@ -3901,7 +3901,20 @@ index 86917dcac3..f3027c602f 100644
 +
    @local()
    accessor xywh: SerializedXYWH = '[0,0,0,0]';
- }
--- 
-2.53.0
-
+  }
+diff --git a/blocksuite/affine/model/src/elements/connector/connector.ts b/blocksuite/affine/model/src/elements/connector/connector.ts
+index f3027c602f..baec76b322 100644
+--- a/blocksuite/affine/model/src/elements/connector/connector.ts
++++ b/blocksuite/affine/model/src/elements/connector/connector.ts
+@@ -372,6 +372,11 @@ export class ConnectorElementModel extends GfxPrimitiveElementModel<ConnectorEle
+      const [x, y, w, h] = this.labelXYWH!;
+      this.labelXYWH = [x + offset[0], y + offset[1], w, h];
+    }
++
++    // Keep manual waypoints aligned when moving selected connectors.
++    if (this.waypoints && this.waypoints.length > 0) {
++      this.waypoints = this.waypoints.map(wp => Vec.add(wp, offset) as IVec);
++    }
+   }
+ -- 
+ 2.53.0

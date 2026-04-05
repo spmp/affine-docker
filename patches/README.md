@@ -6,6 +6,7 @@ Recommended layout:
 
 - `patches/01-host-hooks/*.patch`
 - `patches/05-connector-runtime/*.patch`
+- `patches/06-connector-hover-initiation/*.patch`
 - `patches/06-connector-support-uncertain/*.patch`
 - `patches/07-connector-tests/*.patch`
 - `patches/09-shape-edge-nodes-runtime/*.patch` (optional; currently seeded as `.patch.disabled`)
