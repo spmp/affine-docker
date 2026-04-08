@@ -664,7 +664,7 @@ index f72fd7de7f..00072b7b1b 100644
      `;
    }
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 574dca11da..e19c1576a6 100644
+index 574dca11da..948093db11 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -155,6 +155,7 @@ export function getAnchors(ele: GfxModel) {
@@ -709,15 +709,6 @@ index 574dca11da..e19c1576a6 100644
        ctx.fill();
        ctx.stroke();
        ctx.closePath();
-@@ -963,7 +964,7 @@ export class ConnectionOverlay extends Overlay {
-     this._clearRect();
- 
-     let result: Connection | null = null;
--    // oxlint-disable-next-line @typescript-eslint/prefer-for-of
-+    // eslint-disable-next-line @typescript-eslint/prefer-for-of
-     for (let i = 0; i < connectables.length; i++) {
-       const connectable = connectables[i];
-       // first check if in excluedIds
 @@ -1191,6 +1192,7 @@ export class ConnectorPathGenerator extends PathGenerator {
        getElementById: elementGetter ?? (() => null),
      });
@@ -1323,7 +1314,7 @@ index 0000000000..db71fab034
 +  return index;
 +}
 diff --git a/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts b/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts
-index 3f9d992344..79bb10a778 100644
+index 154c15e305..649279b41e 100644
 --- a/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts
 +++ b/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts
 @@ -6,15 +6,19 @@ import {
@@ -1581,10 +1572,10 @@ index 3f9d992344..79bb10a778 100644
 +    'jumpStyle' in model ? (model.jumpStyle as JumpStyle) : 'none';
 +  const jumpSize: number =
 +    'jumpSize' in model ? (model.jumpSize as number) : 10;
- 
++
 +  // Clear previous content
 +  element.innerHTML = '';
-+
+ 
 +  // Early return if no path points
    if (!points || points.length < 2) {
 -    clearRetainedConnectorDom(element);
@@ -1674,7 +1665,7 @@ index 3f9d992344..79bb10a778 100644
  
    // Adjust points relative to the SVG coordinate system
    const adjustedPoints = points.map(point => {
-@@ -367,26 +393,62 @@ export const connectorBaseDomRenderer = (
+@@ -367,29 +393,67 @@ export const connectorBaseDomRenderer = (
      return adjustedPoint;
    });
  
@@ -1682,8 +1673,6 @@ index 3f9d992344..79bb10a778 100644
 -  path.setAttribute('d', pathData);
 -  path.setAttribute('stroke', strokeColor);
 -  path.setAttribute('stroke-width', String(strokeWidth));
--  if (strokeStyle === 'dash') {
--    path.setAttribute('stroke-dasharray', '12,12');
 +  // Check if jump rendering is needed and available
 +  let pathData: string;
 +
@@ -1712,11 +1701,10 @@ index 3f9d992344..79bb10a778 100644
 +      mode === ConnectorMode.Rounded,
 +      cornerRadius
 +    );
-   } else {
--    path.removeAttribute('stroke-dasharray');
++  } else {
 +    // Standard rendering without jumps
 +    pathData = createConnectorPath(adjustedPoints, mode);
-   }
++  }
 +
 +  pathElement.setAttribute('d', pathData);
 +  pathElement.setAttribute('stroke', strokeColor);
@@ -1726,9 +1714,17 @@ index 3f9d992344..79bb10a778 100644
 +  pathElement.setAttribute('stroke-linejoin', 'round');
 +
 +  // Apply stroke style
-+  if (strokeStyle === 'dash') {
+   if (strokeStyle === 'dash') {
+-    path.setAttribute('stroke-dasharray', '12,12');
 +    pathElement.setAttribute('stroke-dasharray', '12,12');
-+  }
+   } else if (strokeStyle === 'dot') {
+     const gap = strokeWidth * 2.5;
+-    path.setAttribute('stroke-dasharray', `0, ${gap}`);
++    pathElement.setAttribute('stroke-dasharray', `0, ${gap}`);
+   } else {
+-    path.removeAttribute('stroke-dasharray');
++    pathElement.removeAttribute('stroke-dasharray');
+   }
 +
 +  // Apply markers
    if (startMarkerId) {
@@ -1750,7 +1746,7 @@ index 3f9d992344..79bb10a778 100644
    // Set element size and position
    element.style.width = `${model.w * zoom}px`;
    element.style.height = `${model.h * zoom}px`;
-@@ -400,11 +462,7 @@ export const connectorDomRenderer = (
+@@ -403,11 +467,7 @@ export const connectorDomRenderer = (
    renderer: DomRenderer
  ): void => {
    connectorBaseDomRenderer(model, element, renderer);
@@ -1764,7 +1760,7 @@ index 3f9d992344..79bb10a778 100644
  
  /**
 diff --git a/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts b/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
-index 6d6b1e205f..ac8eb0728f 100644
+index f70851eb67..db08387f8c 100644
 --- a/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
 +++ b/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
 @@ -15,7 +15,9 @@ import {
@@ -1776,8 +1772,8 @@ index 6d6b1e205f..ac8eb0728f 100644
 +  type JumpStyle,
    type LocalConnectorElementModel,
    type PointStyle,
- } from '@blocksuite/affine-model';
-@@ -27,11 +29,13 @@ import { deltaInsertsToChunks } from '@blocksuite/std/inline';
+   StrokeStyle,
+@@ -28,11 +30,13 @@ import { deltaInsertsToChunks } from '@blocksuite/std/inline';
  
  import { isConnectorWithLabel } from '../connector-manager';
  import {
@@ -1791,17 +1787,17 @@ index 6d6b1e205f..ac8eb0728f 100644
    renderTriangle,
  } from './utils';
  
-@@ -89,6 +93,7 @@ export const connector: ElementRenderer<
+@@ -90,6 +94,7 @@ export const connector: ElementRenderer<
      points,
-     strokeStyle === 'dash',
+     strokeStyle,
      mode === ConnectorMode.Curve,
 +    mode === ConnectorMode.Rounded,
      strokeColor
    );
    renderEndpoint(
-@@ -134,9 +139,20 @@ function renderPoints(
+@@ -135,9 +140,20 @@ function renderPoints(
    points: PointLocation[],
-   dash: boolean,
+   strokeStyle: StrokeStyle,
    curve: boolean,
 +  rounded: boolean,
    stroke: string
@@ -1820,7 +1816,7 @@ index 6d6b1e205f..ac8eb0728f 100644
  
    if (rough) {
      const options = {
-@@ -153,6 +169,7 @@ function renderPoints(
+@@ -159,6 +175,7 @@ function renderPoints(
          options
        );
      } else {
@@ -1828,7 +1824,7 @@ index 6d6b1e205f..ac8eb0728f 100644
        rc.linearPath(points as unknown as [number, number][], options);
      }
    } else {
-@@ -179,6 +196,87 @@ function renderPoints(
+@@ -191,6 +208,87 @@ function renderPoints(
            );
          }
        });
@@ -1916,7 +1912,7 @@ index 6d6b1e205f..ac8eb0728f 100644
      } else {
        points.forEach((point, index) => {
          if (index === 0) {
-@@ -194,6 +292,142 @@ function renderPoints(
+@@ -206,6 +304,142 @@ function renderPoints(
    }
  }
  
@@ -2059,7 +2055,7 @@ index 6d6b1e205f..ac8eb0728f 100644
  function renderEndpoint(
    model: ConnectorElementModel | LocalConnectorElementModel,
    location: PointLocation[],
-@@ -206,6 +440,8 @@ function renderEndpoint(
+@@ -218,6 +452,8 @@ function renderEndpoint(
    const arrowOptions = getArrowOptions(end, model, stroke);
  
    switch (style) {
@@ -2068,7 +2064,7 @@ index 6d6b1e205f..ac8eb0728f 100644
      case 'Arrow':
        renderArrow(location, ctx, rc, arrowOptions);
        break;
-@@ -218,6 +454,9 @@ function renderEndpoint(
+@@ -230,6 +466,9 @@ function renderEndpoint(
      case 'Diamond':
        renderDiamond(location, ctx, rc, arrowOptions);
        break;
@@ -2671,10 +2667,10 @@ index 9d00827f77..63b7f11499 100644
            name: 'Straight',
            prefix: ConnectorLIcon(iconSize),
 diff --git a/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts b/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
-index 06e1a34ce8..5fa7e0af1b 100644
+index f2b9c95213..a04a099464 100644
 --- a/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
 +++ b/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
-@@ -21,6 +21,7 @@ import { css, html, LitElement } from 'lit';
+@@ -29,6 +29,7 @@ import { css, html, LitElement } from 'lit';
  import { property } from 'lit/decorators.js';
  
  import { ConnectorTool } from '../connector-tool';
@@ -2682,7 +2678,7 @@ index 06e1a34ce8..5fa7e0af1b 100644
  
  function ConnectorModeButtonGroup(
    mode: ConnectorMode,
-@@ -51,6 +52,15 @@ function ConnectorModeButtonGroup(
+@@ -59,6 +60,15 @@ function ConnectorModeButtonGroup(
        >
          ${ConnectorEIcon()}
        </edgeless-tool-icon-button>
@@ -2698,6 +2694,14 @@ index 06e1a34ce8..5fa7e0af1b 100644
        <edgeless-tool-icon-button
          .active=${mode === ConnectorMode.Straight}
          .activeMode=${'background'}
+@@ -107,7 +117,6 @@ export class EdgelessConnectorMenu extends EdgelessToolbarToolMixin(
+       background-color: var(--affine-border-color);
+       display: inline-block;
+     }
+-
+     .color-panel-container {
+       display: flex;
+       align-items: center;
 diff --git a/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts b/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts
 index 6b07969a79..0125039149 100644
 --- a/blocksuite/affine/gfx/connector/src/toolbar/connector-tool-button.ts

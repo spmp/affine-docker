@@ -1,5 +1,5 @@
 diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
-index 67d1ce1869..0ac9c62fd3 100644
+index ec618e7b01..4ff207fe42 100644
 --- a/blocksuite/affine/shared/src/utils/zod-schema.ts
 +++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
 @@ -1,6 +1,7 @@
@@ -27,7 +27,7 @@ index 67d1ce1869..0ac9c62fd3 100644
        color: DefaultTheme.black,
        fontSize: 16,
 diff --git a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/connector.tsx b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/connector.tsx
-index 650cc92977..499cb0dde8 100644
+index dbedee7bed..fa923cc122 100644
 --- a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/connector.tsx
 +++ b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/connector.tsx
 @@ -23,7 +23,12 @@ import {
@@ -245,7 +245,7 @@ index 650cc92977..499cb0dde8 100644
          label:
            t[
              'com.affine.settings.editorSettings.edgeless.connecter.connector-shape.straight'
-@@ -158,6 +336,16 @@ export const ConnectorSettings = () => {
+@@ -171,6 +349,16 @@ export const ConnectorSettings = () => {
      [editorSetting]
    );
  
@@ -262,7 +262,7 @@ index 650cc92977..499cb0dde8 100644
    const currentColor = useMemo(() => {
      const color = settings.connector.stroke;
      return getCurrentStrokeColor(color);
-@@ -185,14 +373,25 @@ export const ConnectorSettings = () => {
+@@ -198,14 +386,25 @@ export const ConnectorSettings = () => {
  
    const startEndPointItems = useMemo(() => {
      const { frontEndpointStyle } = settings.connector;
@@ -292,7 +292,7 @@ index 650cc92977..499cb0dde8 100644
          </MenuItem>
        );
      });
-@@ -200,14 +399,25 @@ export const ConnectorSettings = () => {
+@@ -213,14 +412,25 @@ export const ConnectorSettings = () => {
  
    const endEndPointItems = useMemo(() => {
      const { rearEndpointStyle } = settings.connector;
@@ -322,7 +322,7 @@ index 650cc92977..499cb0dde8 100644
          </MenuItem>
        );
      });
-@@ -362,6 +572,11 @@ export const ConnectorSettings = () => {
+@@ -375,6 +585,11 @@ export const ConnectorSettings = () => {
      return surface?.getElementsByType('connector') || [];
    }, []);
  
@@ -334,7 +334,7 @@ index 650cc92977..499cb0dde8 100644
    return (
      <>
        <EdgelessSnapshot
-@@ -453,9 +668,21 @@ export const ConnectorSettings = () => {
+@@ -467,9 +682,21 @@ export const ConnectorSettings = () => {
        >
          <DropdownMenu
            items={startEndPointItems}
@@ -358,7 +358,7 @@ index 650cc92977..499cb0dde8 100644
              </MenuTrigger>
            }
          />
-@@ -468,13 +695,40 @@ export const ConnectorSettings = () => {
+@@ -482,13 +709,40 @@ export const ConnectorSettings = () => {
        >
          <DropdownMenu
            items={endEndPointItems}
