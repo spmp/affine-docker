@@ -118,26 +118,111 @@ is_shallow_repo() {
   test "$(git -C "$REPO_PATH" rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true"
 }
 
+is_mailbox_patch() {
+  local patch="$1"
+  local first_line=""
+  IFS= read -r first_line < "$patch" || true
+  [[ "$first_line" == From\ * ]]
+}
+
+apply_diff_patch() {
+  local patch="$1"
+  local rel_patch="$2"
+
+  if ! git -C "$REPO_PATH" apply --3way --index "$patch"; then
+    return 1
+  fi
+
+  if git -C "$REPO_PATH" diff --cached --quiet; then
+    echo "No staged changes after applying diff patch: $rel_patch"
+    return 1
+  fi
+
+  git -C "$REPO_PATH" commit -m "Apply patch: $rel_patch" >/dev/null
+  return 0
+}
+
+print_rejected_hunks() {
+  local patch="$1"
+  local tmp_worktree
+  tmp_worktree="$(mktemp -d)"
+
+  if ! git -C "$REPO_PATH" worktree add --detach "$tmp_worktree" HEAD >/dev/null 2>&1; then
+    rm -rf "$tmp_worktree"
+    return 0
+  fi
+
+  git -C "$tmp_worktree" apply --reject --whitespace=nowarn "$patch" >/dev/null 2>&1 || true
+
+  echo "--- rejected hunks (.rej) ---"
+  shopt -s globstar nullglob
+  local rej_files=("$tmp_worktree"/**/*.rej)
+  if [ "${#rej_files[@]}" -eq 0 ]; then
+    echo "No .rej files produced by git apply --reject"
+  else
+    for rej in "${rej_files[@]}"; do
+      local rel
+      rel="${rej#${tmp_worktree}/}"
+      echo "File: $rel"
+      sed -n '1,200p' "$rej" || true
+    done
+  fi
+  shopt -u globstar nullglob
+  echo "--- end rejected hunks ---"
+
+  git -C "$REPO_PATH" worktree remove --force "$tmp_worktree" >/dev/null 2>&1 || rm -rf "$tmp_worktree"
+}
+
 for patch in "${PATCH_FILES[@]}"; do
   rel_patch="${patch#${PATCH_ROOT}/}"
   echo "Applying patch: $(basename "$patch")"
   echo "Patch path: $rel_patch"
   echo "HEAD before apply: $(git -C "$REPO_PATH" rev-parse --short HEAD)"
-  if ! git -C "$REPO_PATH" am --3way "$patch"; then
+
+  applied=false
+  if is_mailbox_patch "$patch"; then
+    if git -C "$REPO_PATH" am --3way "$patch"; then
+      applied=true
+    fi
+  else
+    if apply_diff_patch "$patch" "$rel_patch"; then
+      applied=true
+    fi
+  fi
+
+  if [ "$applied" = false ]; then
     echo "Patch failed with 3-way apply: $rel_patch"
     echo "--- git am current patch (summary) ---"
     git -C "$REPO_PATH" am --show-current-patch=diff || true
     echo "--- end current patch ---"
+    git -C "$REPO_PATH" am --abort >/dev/null 2>&1 || true
+
+    if ! is_mailbox_patch "$patch"; then
+      echo "--- git apply --3way --index (retry) ---"
+      git -C "$REPO_PATH" apply --3way --index "$patch" || true
+      git -C "$REPO_PATH" reset --hard HEAD >/dev/null 2>&1 || true
+      echo "--- end git apply --3way --index ---"
+    fi
+
     echo "--- git apply --check (verbose) ---"
     git -C "$REPO_PATH" apply --check --verbose "$patch" || true
     echo "--- end git apply --check ---"
+    print_rejected_hunks "$patch"
+
     if is_shallow_repo; then
       echo "Patch failed on shallow clone. Fetching full history and retrying once..."
       git -C "$REPO_PATH" am --abort || true
       git -C "$REPO_PATH" fetch --unshallow || git -C "$REPO_PATH" fetch --depth=50000
-      if git -C "$REPO_PATH" am --3way "$patch"; then
-        echo "Patch retry succeeded after unshallow: $rel_patch"
-        continue
+      if is_mailbox_patch "$patch"; then
+        if git -C "$REPO_PATH" am --3way "$patch"; then
+          echo "Patch retry succeeded after unshallow: $rel_patch"
+          continue
+        fi
+      else
+        if apply_diff_patch "$patch" "$rel_patch"; then
+          echo "Patch retry succeeded after unshallow: $rel_patch"
+          continue
+        fi
       fi
     fi
     echo "Patch apply failed: $patch"
