@@ -5,11 +5,10 @@ Store `.patch` files here to apply custom AFFiNE changes during Docker builds.
 Recommended layout:
 
 - `patches/01-host-hooks/*.patch`
+- `patches/02-color-palettes/*.patch`
+- `patches/03-dotted-line-style/*.patch`
 - `patches/05-connector-runtime/*.patch`
 - `patches/06-connector-hover-initiation/*.patch`
-- `patches/06-connector-support-uncertain/*.patch`
-- `patches/07-connector-tests/*.patch`
-- `patches/09-shape-edge-nodes-runtime/*.patch` (optional; currently seeded as `.patch.disabled`)
 
 Patches are discovered recursively and applied in lexical order.
 

@@ -57,16 +57,14 @@ Suggested layout:
 - `patches/01-host-hooks/*.patch`
 - `patches/05-connector-runtime/*.patch`
 - `patches/06-connector-support-uncertain/*.patch`
-- `patches/07-connector-tests/*.patch`
-- `patches/09-shape-edge-nodes-runtime/*.patch` (optional seed; disabled by default)
 
 Current bucket intent:
 
 - `01-host-hooks`: private platform seams and compose scripts.
-- `05-connector-runtime`: connector runtime behavior only.
-- `06-connector-support-uncertain`: investigation bucket (not final ownership).
-- `07-connector-tests`: extraction validation/test helper adjustments.
-- `09-shape-edge-nodes-runtime`: expanded anchor-density seed for shape/edge-node feature.
+- `02-color-palettes`: color palette support for drawing, including settings and customisations
+- `03-dotted-line-style`: dotted line style
+- `05-connector-runtime`: connector drawing features
+- `06-connector-hover-initiation`: hover on shape to initiate connector
 
 Ordering rule:
 

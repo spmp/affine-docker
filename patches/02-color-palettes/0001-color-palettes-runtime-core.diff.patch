@@ -1,0 +1,2707 @@
+diff --git a/blocksuite/affine/blocks/surface/src/utils/get-last-props-key.ts b/blocksuite/affine/blocks/surface/src/utils/get-last-props-key.ts
+index b7846cf1a9..390009f7bb 100644
+--- a/blocksuite/affine/blocks/surface/src/utils/get-last-props-key.ts
++++ b/blocksuite/affine/blocks/surface/src/utils/get-last-props-key.ts
+@@ -1,4 +1,9 @@
+-import { getShapeName, type ShapeProps } from '@blocksuite/affine-model';
++import {
++  getShapeName,
++  type ShapeName,
++  type ShapeProps,
++  ShapeType,
++} from '@blocksuite/affine-model';
+ import type {
+   LastProps,
+   LastPropsKey,
+@@ -14,7 +19,7 @@ export function getLastPropsKey(
+   if (modelType === 'shape') {
+     const { shapeType, radius } = modelProps as ShapeProps;
+     const shapeName = getShapeName(shapeType, radius);
+-    return `${modelType}:${shapeName}`;
++    return `${modelType}:${normalizeShapeLastPropsName(shapeName)}`;
+   }
+ 
+   if (isLastPropsKey(modelType)) {
+@@ -24,6 +29,18 @@ export function getLastPropsKey(
+   return null;
+ }
+ 
++function normalizeShapeLastPropsName(shapeName: ShapeName): ShapeName {
++  if (
++    shapeName === ShapeType.Rect ||
++    shapeName === ShapeType.Ellipse ||
++    shapeName === 'roundedRect'
++  ) {
++    return shapeName;
++  }
++
++  return ShapeType.Triangle;
++}
++
+ function isLastPropsKey(key: string): key is LastPropsKey {
+   return Object.keys(LastPropsSchema.shape).includes(key);
+ }
+diff --git a/blocksuite/affine/components/src/color-picker/color-panel.ts b/blocksuite/affine/components/src/color-picker/color-panel.ts
+index 262ce983fa..fc5b04e22b 100644
+--- a/blocksuite/affine/components/src/color-picker/color-panel.ts
++++ b/blocksuite/affine/components/src/color-picker/color-panel.ts
+@@ -7,10 +7,13 @@ import { property } from 'lit/decorators.js';
+ import { classMap } from 'lit/directives/class-map.js';
+ import { ifDefined } from 'lit/directives/if-defined.js';
+ import { repeat } from 'lit/directives/repeat.js';
++import { styleMap } from 'lit/directives/style-map.js';
+ import isEqual from 'lodash-es/isEqual';
+ 
+ import { AdditionIcon } from './icons';
+ 
++type GradientDirection = 'S' | 'W' | 'N' | 'E' | 'SE' | 'SW' | 'NE' | 'NW';
++
+ export class EdgelessColorButton extends LitElement {
+   static override styles = css`
+     :host {
+@@ -48,9 +51,12 @@ export class EdgelessColorButton extends LitElement {
+       border-radius: 50%;
+       box-sizing: border-box;
+       overflow: hidden;
+-      border-width: 0.5px;
++      border-width: 2px;
+       border-style: solid;
+-      border-color: ${unsafeCSSVarV2('layer/insideBorder/blackBorder')};
++      border-color: var(
++        --color-unit-border-color,
++        ${unsafeCSSVarV2('layer/insideBorder/blackBorder')}
++      );
+     }
+     :host(.black) .color-unit:after {
+       border-color: ${unsafeCSSVarV2('layer/insideBorder/border')};
+@@ -87,9 +93,59 @@ export class EdgelessColorButton extends LitElement {
+   }
+ 
+   override render() {
+-    const { label, preprocessColor, hollowCircle } = this;
+-    const additionIcon = AdditionIcon(preprocessColor, !!hollowCircle);
+-    return html`<div class="color-unit" aria-label=${ifDefined(label)}>
++    const {
++      label,
++      preprocessColor,
++      hollowCircle,
++      ringColor,
++      gradientFinal,
++      gradientDirection,
++    } = this;
++    const resolvedFillColor = resolveColor(this.color, this.theme);
++    const normalizedFill = resolvedFillColor.replace(/\s+/g, '').toLowerCase();
++    const isWhite =
++      normalizedFill === '#fff' ||
++      normalizedFill === '#ffffff' ||
++      normalizedFill === 'white' ||
++      normalizedFill === 'rgb(255,255,255)' ||
++      normalizedFill === 'rgba(255,255,255,1)';
++    const resolvedRingColor = ringColor
++      ? resolveColor(ringColor, this.theme)
++      : undefined;
++    const normalizedRing = resolvedRingColor
++      ? resolvedRingColor.replace(/\s+/g, '').toLowerCase()
++      : undefined;
++    const ringColorValue = resolvedRingColor?.startsWith('--')
++      ? `var(${resolvedRingColor})`
++      : resolvedRingColor;
++    const adjustedRingColor =
++      isWhite &&
++      (normalizedRing === '#fff' ||
++        normalizedRing === '#ffffff' ||
++        normalizedRing === 'white' ||
++        normalizedRing === 'rgb(255,255,255)' ||
++        normalizedRing === 'rgba(255,255,255,1)')
++        ? 'var(--affine-border-color)'
++        : ringColorValue;
++    const resolvedGradientFinal = gradientFinal
++      ? resolveColor(gradientFinal, this.theme)
++      : undefined;
++    const gradientFinalValue = resolvedGradientFinal?.startsWith('--')
++      ? `var(${resolvedGradientFinal})`
++      : resolvedGradientFinal;
++    const additionIcon = AdditionIcon({
++      color: preprocessColor,
++      hollowCircle: !!hollowCircle,
++      gradientFinal: gradientFinalValue,
++      gradientDirection,
++    });
++    return html`<div
++      class="color-unit"
++      aria-label=${ifDefined(label)}
++      style=${styleMap({
++        '--color-unit-border-color': adjustedRingColor,
++      })}
++    >
+       ${additionIcon}
+     </div>`;
+   }
+@@ -106,6 +162,18 @@ export class EdgelessColorButton extends LitElement {
+   @property({ attribute: false })
+   accessor label: string | undefined = undefined;
+ 
++  @property({ attribute: false })
++  accessor ringColor: Color | undefined = undefined;
++
++  @property({ attribute: false })
++  accessor gradientFinal: Color | undefined = undefined;
++
++  @property({ attribute: false })
++  accessor gradientDirection: GradientDirection | undefined = undefined;
++
++  @property({ attribute: false })
++  accessor activeKey: string | undefined = undefined;
++
+   @property({ attribute: false })
+   accessor theme!: ColorScheme;
+ }
+@@ -173,17 +241,32 @@ export class EdgelessColorPanel extends LitElement {
+         palette => palette.key,
+         palette => {
+           const resolvedColor = resolveColor(palette.value, this.theme);
+-          const activated = isEqual(resolvedColor, this.resolvedValue);
++          const activated = this.activeKey
++            ? palette.key === this.activeKey
++            : isEqual(resolvedColor, this.resolvedValue);
++          const outlinePalette = this.outlinePalettes?.find(
++            outline => outline.key === palette.key
++          );
++          const ringPalette = this.ringPalettes?.find(
++            outline => outline.key === palette.key
++          );
++          const gradientPalette = this.gradientPalettes?.find(
++            outline => outline.key === palette.key
++          );
+           return html`<edgeless-color-button
+             class=${classMap({ large: true })}
+             .label=${palette.key}
+             .color=${palette.value}
+             .theme=${this.theme}
+             .hollowCircle=${this.hollowCircle}
++            .ringColor=${ringPalette?.value ?? outlinePalette?.value}
++            .gradientFinal=${gradientPalette?.value}
++            .gradientDirection=${gradientPalette?.direction}
++            .activeKey=${this.activeKey}
+             ?active=${activated}
+             @click=${() => {
+               this.select(palette);
+-              this.value = resolvedColor;
++              this.value = palette.value;
+             }}
+           >
+           </edgeless-color-button>`;
+@@ -202,6 +285,20 @@ export class EdgelessColorPanel extends LitElement {
+   @property({ type: Array })
+   accessor palettes: readonly Palette[] = DefaultTheme.Palettes;
+ 
++  @property({ attribute: false })
++  accessor outlinePalettes: readonly Palette[] | undefined = undefined;
++
++  @property({ attribute: false })
++  accessor ringPalettes: readonly Palette[] | undefined = undefined;
++
++  @property({ attribute: false })
++  accessor activeKey: string | undefined = undefined;
++
++  @property({ attribute: false })
++  accessor gradientPalettes:
++    | readonly { key: string; value: Color; direction?: GradientDirection }[]
++    | undefined = undefined;
++
+   @property({ attribute: false })
+   accessor theme!: ColorScheme;
+ 
+diff --git a/blocksuite/affine/components/src/color-picker/icons.ts b/blocksuite/affine/components/src/color-picker/icons.ts
+index 3156771d92..36f6971b88 100644
+--- a/blocksuite/affine/components/src/color-picker/icons.ts
++++ b/blocksuite/affine/components/src/color-picker/icons.ts
+@@ -40,6 +40,47 @@ export function CircleIcon(color: string) {
+   `;
+ }
+ 
++type GradientDirection = 'S' | 'W' | 'N' | 'E' | 'SE' | 'SW' | 'NE' | 'NW';
++
++const gradientDirectionMap: Record<GradientDirection, string> = {
++  S: '0 0 0 1',
++  W: '1 0 0 0',
++  N: '0 1 0 0',
++  E: '0 0 1 0',
++  SE: '0 0 1 1',
++  SW: '1 0 0 1',
++  NE: '0 1 1 0',
++  NW: '1 1 0 0',
++};
++
++export function GradientCircleIcon(
++  color: string,
++  gradientFinal: string,
++  gradientDirection: GradientDirection = 'S'
++) {
++  const gradientId = `grad-${`${color}-${gradientFinal}-${gradientDirection}`
++    .replace(/[^a-zA-Z0-9_-]/g, '')
++    .slice(0, 32)}`;
++  const [x1, y1, x2, y2] = gradientDirectionMap[gradientDirection].split(' ');
++  return html`
++    <svg
++      xmlns="http://www.w3.org/2000/svg"
++      width="20"
++      height="20"
++      viewBox="0 0 20 20"
++    >
++      <defs>
++        <linearGradient id=${gradientId} x1=${x1} y1=${y1} x2=${x2} y2=${y2}>
++          <stop offset="0%" stop-color=${color} />
++          <stop offset="35%" stop-color=${color} />
++          <stop offset="100%" stop-color=${gradientFinal} />
++        </linearGradient>
++      </defs>
++      <circle cx="10" cy="10" r="10" fill=${`url(#${gradientId})`} />
++    </svg>
++  `;
++}
++
+ export function HollowCircleIcon(color: string) {
+   return html`
+     <svg
+@@ -58,7 +99,13 @@ export function HollowCircleIcon(color: string) {
+   `;
+ }
+ 
+-export function AdditionIcon(color: string, hollowCircle: boolean) {
++export function AdditionIcon(options: {
++  color: string;
++  hollowCircle: boolean;
++  gradientFinal?: string;
++  gradientDirection?: GradientDirection;
++}) {
++  const { color, hollowCircle, gradientFinal, gradientDirection } = options;
+   if (isTransparent(color)) {
+     return TransparentIcon(hollowCircle);
+   }
+@@ -67,5 +114,9 @@ export function AdditionIcon(color: string, hollowCircle: boolean) {
+     return HollowCircleIcon(color);
+   }
+ 
++  if (gradientFinal) {
++    return GradientCircleIcon(color, gradientFinal, gradientDirection);
++  }
++
+   return CircleIcon(color);
+ }
+diff --git a/blocksuite/affine/components/src/edgeless-shape-color-picker/color-picker.ts b/blocksuite/affine/components/src/edgeless-shape-color-picker/color-picker.ts
+index fc518128ea..ab88a69327 100644
+--- a/blocksuite/affine/components/src/edgeless-shape-color-picker/color-picker.ts
++++ b/blocksuite/affine/components/src/edgeless-shape-color-picker/color-picker.ts
+@@ -14,8 +14,9 @@ import {
+   stopPropagation,
+ } from '@blocksuite/affine-shared/utils';
+ import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
++import { BanIcon } from '@blocksuite/icons/lit';
+ import { batch, signal } from '@preact/signals-core';
+-import { css, html, LitElement } from 'lit';
++import { css, html, LitElement, type PropertyValues } from 'lit';
+ import { property, query } from 'lit/decorators.js';
+ import { choose } from 'lit-html/directives/choose.js';
+ import { repeat } from 'lit-html/directives/repeat.js';
+@@ -34,23 +35,58 @@ import type { LineDetailType } from '../edgeless-line-styles-panel';
+ import type { EditorMenuButton } from '../toolbar';
+ 
+ type TabType = 'normal' | 'custom';
++type FillMode = 'fill' | 'gradient';
++type ColorType =
++  | Extract<keyof ShapeProps, 'fillColor' | 'strokeColor'>
++  | 'gradientFinal';
++type GradientDirection =
++  | 'none'
++  | 'N'
++  | 'NE'
++  | 'E'
++  | 'SE'
++  | 'S'
++  | 'SW'
++  | 'W'
++  | 'NW';
+ 
+-type ColorType = Extract<keyof ShapeProps, 'fillColor' | 'strokeColor'>;
++const GRADIENT_DIRECTIONS: Array<{ key: GradientDirection; label: string }> = [
++  { key: 'none', label: '' },
++  { key: 'N', label: 'N' },
++  { key: 'NE', label: 'NE' },
++  { key: 'E', label: 'E' },
++  { key: 'SE', label: 'SE' },
++  { key: 'S', label: 'S' },
++  { key: 'SW', label: 'SW' },
++  { key: 'W', label: 'W' },
++  { key: 'NW', label: 'NW' },
++];
+ 
+-type PickerType = {
+-  label: string;
+-  type: ColorType;
+-  value: string;
+-  hollowCircle: boolean;
+-  onPick: (e: ColorEvent) => void;
+-};
++function normalizeGradientDirection(direction?: string): GradientDirection {
++  if (!direction) return 'none';
++  const normalized = direction.toUpperCase();
++  if (normalized === 'N') return 'N';
++  if (normalized === 'NE') return 'NE';
++  if (normalized === 'E') return 'E';
++  if (normalized === 'SE') return 'SE';
++  if (normalized === 'S') return 'S';
++  if (normalized === 'SW') return 'SW';
++  if (normalized === 'W') return 'W';
++  if (normalized === 'NW') return 'NW';
++  return 'none';
++}
+ 
+ export class EdgelessShapeColorPicker extends WithDisposable(
+   SignalWatcher(LitElement)
+ ) {
+   static override styles = css`
++    :host {
++      display: block;
++    }
++
+     .pickers {
+       display: flex;
++      flex-direction: column;
+       align-self: stretch;
+       gap: 12px;
+     }
+@@ -64,12 +100,72 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+     .picker-label {
+       color: ${unsafeCSSVarV2('text/secondary')};
+       font-weight: 400;
++      display: flex;
++      align-items: center;
++      gap: 8px;
++    }
++
++    .mode-button {
++      border: 1px solid transparent;
++      background: transparent;
++      color: ${unsafeCSSVarV2('text/secondary')};
++      border-radius: 6px;
++      line-height: 22px;
++      font-size: 12px;
++      padding: 0 10px;
++      cursor: pointer;
++    }
++
++    .mode-button:hover {
++      background: ${unsafeCSSVarV2('layer/background/hoverOverlay')};
++    }
++
++    .mode-button.active {
++      color: ${unsafeCSSVarV2('text/emphasis')};
++      border-color: ${unsafeCSSVarV2('layer/insideBorder/border')};
++      background: ${unsafeCSSVarV2('layer/background/secondary')};
++    }
++
++    .gradient-directions {
++      display: flex;
++      align-items: center;
++      gap: 6px;
++      padding: 4px 0 0;
++      flex-wrap: wrap;
++    }
++
++    .direction-button {
++      width: 22px;
++      height: 22px;
++      border-radius: 50%;
++      border: 1px solid transparent;
++      background: transparent;
++      color: ${unsafeCSSVarV2('text/secondary')};
++      display: inline-flex;
++      align-items: center;
++      justify-content: center;
++      font-size: 10px;
++      cursor: pointer;
++      padding: 0;
++    }
++
++    .direction-button.active {
++      border-color: var(--affine-primary-color);
++      background: ${unsafeCSSVarV2('layer/background/secondary')};
++      color: ${unsafeCSSVarV2('text/emphasis')};
++    }
++
++    .direction-button.none svg {
++      width: 12px;
++      height: 12px;
++      color: currentColor;
+     }
+   `;
+ 
+   tabType$ = signal<TabType>('normal');
+-
+   colorType$ = signal<ColorType>('fillColor');
++  fillMode$ = signal<FillMode>('fill');
++  gradientDirection$ = signal<GradientDirection>('none');
+ 
+   readonly #pickFillColor = (e: ColorEvent) => {
+     e.stopPropagation();
+@@ -86,10 +182,10 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+     );
+   };
+ 
+-  readonly #pickStrokeColor = (e: ColorEvent) => {
++  readonly #pickGradientFinalColor = (e: ColorEvent) => {
+     e.stopPropagation();
+     this.dispatchEvent(
+-      new CustomEvent<PickColorEvent>('pickStrokeColor', {
++      new CustomEvent<PickColorEvent>('pickGradientFinalColor', {
+         detail: {
+           type: 'pick',
+           detail: e.detail,
+@@ -101,14 +197,14 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+     );
+   };
+ 
+-  readonly #pickColor = (detail: PickColorEvent) => {
+-    const type =
+-      this.colorType$.peek() === 'fillColor'
+-        ? 'pickFillColor'
+-        : 'pickStrokeColor';
++  readonly #pickStrokeColor = (e: ColorEvent) => {
++    e.stopPropagation();
+     this.dispatchEvent(
+-      new CustomEvent<PickColorEvent>(type, {
+-        detail,
++      new CustomEvent<PickColorEvent>('pickStrokeColor', {
++        detail: {
++          type: 'pick',
++          detail: e.detail,
++        },
+         bubbles: true,
+         composed: true,
+         cancelable: true,
+@@ -128,6 +224,37 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+     );
+   };
+ 
++  readonly #pickGradientDirection = (direction: GradientDirection) => {
++    this.gradientDirection$.value = direction;
++    this.dispatchEvent(
++      new CustomEvent<GradientDirection>('pickGradientDirection', {
++        detail: direction,
++        bubbles: true,
++        composed: true,
++        cancelable: true,
++      })
++    );
++  };
++
++  readonly #pickColor = (detail: PickColorEvent) => {
++    const target = this.colorType$.peek();
++    const eventType =
++      target === 'fillColor'
++        ? 'pickFillColor'
++        : target === 'gradientFinal'
++          ? 'pickGradientFinalColor'
++          : 'pickStrokeColor';
++
++    this.dispatchEvent(
++      new CustomEvent<PickColorEvent>(eventType, {
++        detail,
++        bubbles: true,
++        composed: true,
++        cancelable: true,
++      })
++    );
++  };
++
+   #calcCustomButtonStyle(color: string, isCustomColor: boolean) {
+     return calcCustomButtonStyle(color, isCustomColor, this);
+   }
+@@ -160,6 +287,10 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+   }
+ 
+   override firstUpdated() {
++    if (this.inline || !this.menuButton) {
++      return;
++    }
++
+     this.disposables.addFromEvent(
+       this.menuButton,
+       'toggle',
+@@ -172,14 +303,23 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+     );
+   }
+ 
+-  override render() {
++  override willUpdate(changedProperties: PropertyValues<this>) {
++    if (changedProperties.has('payload')) {
++      this.gradientDirection$.value = normalizeGradientDirection(
++        this.payload.gradientDirection
++      );
++    }
++  }
++
++  #renderContent() {
+     const {
+       tabType$: { value: tabType },
+       colorType$: { value: colorType },
++      fillMode$: { value: fillMode },
+       palettes,
+-      fillColorWithoutAlpha,
+       payload: {
+         fillColor,
++        gradientFinal,
+         strokeColor,
+         strokeWidth,
+         strokeStyle,
+@@ -187,9 +327,200 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+         originalStrokeColor,
+         theme,
+         enableCustomColor,
++        enableGradient,
+       },
+     } = this;
+ 
++    const effectiveGradientDirection = this.gradientDirection$.value;
++
++    const showGradient = enableGradient ?? true;
++
++    const fillDisplayColor =
++      fillMode === 'gradient' ? (gradientFinal ?? fillColor) : fillColor;
++
++    return html`<div class="pickers" data-orientation="vertical">
++      ${choose(tabType, [
++        [
++          'normal',
++          () => html`
++            <div class="picker-label">
++              <button
++                type="button"
++                class="mode-button ${fillMode === 'fill' ? 'active' : ''}"
++                @click=${(e: MouseEvent) => {
++                  e.preventDefault();
++                  e.stopPropagation();
++                  batch(() => {
++                    this.fillMode$.value = 'fill';
++                    this.colorType$.value = 'fillColor';
++                  });
++                }}
++              >
++                Fill color
++              </button>
++              ${when(showGradient, () => {
++                return html`<button
++                  type="button"
++                  class="mode-button ${fillMode === 'gradient' ? 'active' : ''}"
++                  @click=${(e: MouseEvent) => {
++                    e.preventDefault();
++                    e.stopPropagation();
++                    batch(() => {
++                      this.fillMode$.value = 'gradient';
++                      this.colorType$.value = 'gradientFinal';
++                    });
++                  }}
++                >
++                  Gradient
++                </button>`;
++              })}
++            </div>
++
++            <edgeless-color-panel
++              aria-label="Fill color"
++              role="listbox"
++              .hasTransparent=${false}
++              .hollowCircle=${false}
++              .value=${fillDisplayColor}
++              .theme=${theme}
++              .palettes=${palettes}
++              @select=${fillMode === 'gradient'
++                ? this.#pickGradientFinalColor
++                : this.#pickFillColor}
++            >
++              ${when(enableCustomColor, () => {
++                const isCustomColor = this.#calcCustomButtonState(
++                  fillDisplayColor,
++                  theme
++                );
++                const styleInfo = this.#calcCustomButtonStyle(
++                  fillDisplayColor,
++                  isCustomColor
++                );
++                return html`
++                  <edgeless-color-custom-button
++                    slot="custom"
++                    style=${styleMap(styleInfo)}
++                    ?active=${isCustomColor}
++                    @click=${() =>
++                      this.#switchToCustomWith(
++                        fillMode === 'gradient' ? 'gradientFinal' : 'fillColor'
++                      )}
++                  ></edgeless-color-custom-button>
++                `;
++              })}
++            </edgeless-color-panel>
++
++            ${when(showGradient && fillMode === 'gradient', () => {
++              return html`<div class="gradient-directions">
++                ${repeat(
++                  GRADIENT_DIRECTIONS,
++                  item => item.key,
++                  item =>
++                    html`<editor-icon-button
++                      class="direction-button ${item.key === 'none'
++                        ? 'none'
++                        : ''} ${effectiveGradientDirection === item.key
++                        ? 'active'
++                        : ''}"
++                      data-direction=${item.key}
++                      .tooltip=${item.key === 'none'
++                        ? 'No gradient direction'
++                        : `Gradient ${item.label}`}
++                      @click=${(e: MouseEvent) => {
++                        e.preventDefault();
++                        e.stopPropagation();
++                        this.#pickGradientDirection(item.key);
++                      }}
++                    >
++                      ${item.key === 'none' ? BanIcon() : item.label}
++                    </editor-icon-button>`
++                )}
++              </div>`;
++            })}
++
++            <div class="picker-label">Border color</div>
++            <edgeless-color-panel
++              aria-label="Border color"
++              role="listbox"
++              .hasTransparent=${false}
++              .hollowCircle=${true}
++              .value=${strokeColor}
++              .theme=${theme}
++              .palettes=${palettes}
++              @select=${this.#pickStrokeColor}
++            >
++              ${when(enableCustomColor, () => {
++                const isCustomColor = this.#calcCustomButtonState(
++                  strokeColor,
++                  theme
++                );
++                const styleInfo = this.#calcCustomButtonStyle(
++                  strokeColor,
++                  isCustomColor
++                );
++                return html`
++                  <edgeless-color-custom-button
++                    slot="custom"
++                    style=${styleMap(styleInfo)}
++                    ?active=${isCustomColor}
++                    @click=${() => this.#switchToCustomWith('strokeColor')}
++                  ></edgeless-color-custom-button>
++                `;
++              })}
++            </edgeless-color-panel>
++
++            <div class="picker-label">Border style</div>
++            <edgeless-line-styles-panel
++              class="picker"
++              .lineSize=${strokeWidth}
++              .lineStyle=${strokeStyle}
++              @select=${this.#pickStrokeStyle}
++            ></edgeless-line-styles-panel>
++          `,
++        ],
++        [
++          'custom',
++          () => {
++            const isFillColor = colorType === 'fillColor';
++            const isGradientFinal = colorType === 'gradientFinal';
++            const targetColor = isFillColor
++              ? fillColor
++              : isGradientFinal
++                ? (gradientFinal ?? fillColor)
++                : strokeColor;
++            const originalColor = isFillColor
++              ? originalFillColor
++              : isGradientFinal
++                ? (gradientFinal ?? originalFillColor)
++                : originalStrokeColor;
++
++            const packed = packColorsWith(theme, targetColor, originalColor);
++            const type = packed.type === 'palette' ? 'normal' : packed.type;
++            const modes = packed.colors.map(
++              preprocessColor(window.getComputedStyle(this))
++            );
++
++            return html`
++              <edgeless-color-picker
++                class="custom"
++                .pick=${this.#pickColor}
++                .colors=${{ type, modes }}
++              ></edgeless-color-picker>
++            `;
++          },
++        ],
++      ])}
++    </div>`;
++  }
++
++  override render() {
++    const tabType = this.tabType$.value;
++
++    if (this.inline) {
++      return this.#renderContent();
++    }
++
+     return html`
+       <editor-menu-button
+         .contentPadding="${tabType === 'normal' ? '8px' : '0px'}"
+@@ -197,103 +528,12 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+         .button=${html`
+           <editor-icon-button aria-label="Color" .tooltip="${'Color'}">
+             <edgeless-color-button
+-              .color=${fillColorWithoutAlpha}
++              .color=${this.fillColorWithoutAlpha}
+             ></edgeless-color-button>
+           </editor-icon-button>
+         `}
+       >
+-        <div class="pickers" data-orientation="vertical">
+-          ${choose(tabType, [
+-            [
+-              'normal',
+-              () => {
+-                return html`
+-                  ${repeat(
+-                    [
+-                      {
+-                        label: 'Fill color',
+-                        type: 'fillColor',
+-                        value: fillColor,
+-                        hollowCircle: false,
+-                        onPick: this.#pickFillColor,
+-                      },
+-                      {
+-                        label: 'Border color',
+-                        type: 'strokeColor',
+-                        value: strokeColor,
+-                        hollowCircle: true,
+-                        onPick: this.#pickStrokeColor,
+-                      },
+-                    ] satisfies PickerType[],
+-                    item => item.type,
+-                    ({ label, type, value, onPick, hollowCircle }) => html`
+-                      <div class="picker-label">${label}</div>
+-                      <edgeless-color-panel
+-                        aria-label="${label}"
+-                        role="listbox"
+-                        .hasTransparent=${false}
+-                        .hollowCircle=${hollowCircle}
+-                        .value=${value}
+-                        .theme=${theme}
+-                        .palettes=${palettes}
+-                        @select=${onPick}
+-                      >
+-                        ${when(enableCustomColor, () => {
+-                          const isCustomColor = this.#calcCustomButtonState(
+-                            value,
+-                            theme
+-                          );
+-                          const styleInfo = this.#calcCustomButtonStyle(
+-                            value,
+-                            isCustomColor
+-                          );
+-                          return html`
+-                            <edgeless-color-custom-button
+-                              slot="custom"
+-                              style=${styleMap(styleInfo)}
+-                              ?active=${isCustomColor}
+-                              @click=${() => this.#switchToCustomWith(type)}
+-                            ></edgeless-color-custom-button>
+-                          `;
+-                        })}
+-                      </edgeless-color-panel>
+-                    `
+-                  )}
+-                  <div class="picker-label">Border style</div>
+-                  <edgeless-line-styles-panel
+-                    class="picker"
+-                    .lineSize=${strokeWidth}
+-                    .lineStyle=${strokeStyle}
+-                    @select=${this.#pickStrokeStyle}
+-                  ></edgeless-line-styles-panel>
+-                `;
+-              },
+-            ],
+-            [
+-              'custom',
+-              () => {
+-                const isFillColor = colorType === 'fillColor';
+-                const packed = packColorsWith(
+-                  theme,
+-                  isFillColor ? fillColor : strokeColor,
+-                  isFillColor ? originalFillColor : originalStrokeColor
+-                );
+-                const type = packed.type === 'palette' ? 'normal' : packed.type;
+-                const modes = packed.colors.map(
+-                  preprocessColor(window.getComputedStyle(this))
+-                );
+-
+-                return html`
+-                  <edgeless-color-picker
+-                    class="custom"
+-                    .pick=${this.#pickColor}
+-                    .colors=${{ type, modes }}
+-                  ></edgeless-color-picker>
+-                `;
+-              },
+-            ],
+-          ])}
+-        </div>
++        ${this.#renderContent()}
+       </editor-menu-button>
+     `;
+   }
+@@ -304,15 +544,21 @@ export class EdgelessShapeColorPicker extends WithDisposable(
+     strokeColor: string;
+     strokeWidth: LineWidth;
+     strokeStyle: StrokeStyle;
++    gradientFinal?: string;
++    gradientDirection?: GradientDirection;
+     originalFillColor: Color;
+     originalStrokeColor: Color;
+     theme: ColorScheme;
+     enableCustomColor: boolean;
++    enableGradient?: boolean;
+   };
+ 
+   @property({ attribute: false })
+   accessor palettes: Palette[] = DefaultTheme.Palettes;
+ 
++  @property({ type: Boolean })
++  accessor inline = false;
++
+   @query('editor-menu-button')
+   accessor menuButton!: EditorMenuButton;
+ }
+diff --git a/blocksuite/affine/gfx/brush/package.json b/blocksuite/affine/gfx/brush/package.json
+index 6b1ff2530b..71f8b9afb4 100644
+--- a/blocksuite/affine/gfx/brush/package.json
++++ b/blocksuite/affine/gfx/brush/package.json
+@@ -13,10 +13,12 @@
+     "@blocksuite/affine-block-surface": "workspace:*",
+     "@blocksuite/affine-components": "workspace:*",
+     "@blocksuite/affine-ext-loader": "workspace:*",
++    "@blocksuite/affine-gfx-shape": "workspace:*",
+     "@blocksuite/affine-model": "workspace:*",
+     "@blocksuite/affine-shared": "workspace:*",
+     "@blocksuite/affine-widget-edgeless-toolbar": "workspace:*",
+     "@blocksuite/global": "workspace:*",
++    "@blocksuite/icons": "^2.2.17",
+     "@blocksuite/std": "workspace:*",
+     "@preact/signals-core": "^1.8.0",
+     "lit": "^3.2.0"
+diff --git a/blocksuite/affine/gfx/brush/src/toolbar/components/pen/pen-menu.ts b/blocksuite/affine/gfx/brush/src/toolbar/components/pen/pen-menu.ts
+index 55ec97ab35..b5aa108413 100644
+--- a/blocksuite/affine/gfx/brush/src/toolbar/components/pen/pen-menu.ts
++++ b/blocksuite/affine/gfx/brush/src/toolbar/components/pen/pen-menu.ts
+@@ -1,7 +1,18 @@
+ import { adjustColorAlpha } from '@blocksuite/affine-components/color-picker';
++import {
++  filterShapePalettes,
++  getShapePaletteDataFrom,
++  getShapePalettesStorageKey,
++  getToolPaletteMemory,
++  readStoredShapePalettes,
++  setToolPaletteMemory,
++  SHAPE_PALETTES_STORAGE_EVENT,
++  shapePaletteKeys,
++  shapePalettes,
++} from '@blocksuite/affine-gfx-shape';
+ import {
+   BRUSH_LINE_WIDTHS,
+-  DefaultTheme,
++  type Color,
+   HIGHLIGHTER_LINE_WIDTHS,
+ } from '@blocksuite/affine-model';
+ import {
+@@ -11,6 +22,7 @@ import {
+ import type { ColorEvent } from '@blocksuite/affine-shared/utils';
+ import { EdgelessToolbarToolMixin } from '@blocksuite/affine-widget-edgeless-toolbar';
+ import { SignalWatcher } from '@blocksuite/global/lit';
++import { ArrowUpSmallIcon } from '@blocksuite/icons/lit';
+ import {
+   computed,
+   type ReadonlySignal,
+@@ -28,6 +40,16 @@ import type { Pen, PenMap } from './types';
+ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+   SignalWatcher(LitElement)
+ ) {
++  private _palettes = filterShapePalettes(shapePalettes, 'line');
++
++  private readonly _memoryKey = 'pen';
++
++  private _paletteIndex = 0;
++
++  private _activeColorKey: string | undefined;
++
++  private _loadedWorkspaceId: string | undefined;
++
+   static override styles = css`
+     :host {
+       display: flex;
+@@ -78,6 +100,24 @@ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+       height: 24px;
+       margin: 0 9px;
+     }
++
++    .color-panel-container {
++      display: flex;
++      align-items: center;
++      gap: 8px;
++    }
++
++    .palette-toggle-button {
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      border-radius: 999px;
++    }
++
++    .palette-toggle-button svg {
++      fill: none;
++      stroke: var(--affine-icon-color);
++    }
+   `;
+ 
+   private readonly _theme$ = computed(() => {
+@@ -93,10 +133,96 @@ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+     }
+   };
+ 
++  override connectedCallback(): void {
++    super.connectedCallback();
++    const memory = getToolPaletteMemory(this._memoryKey);
++    this._reloadPalettes();
++    queueMicrotask(() => this._reloadPalettes());
++    this._paletteIndex = memory.index % this._paletteCount;
++    this._activeColorKey = memory.activeKey;
++
++    if (typeof window !== 'undefined') {
++      window.addEventListener(
++        SHAPE_PALETTES_STORAGE_EVENT,
++        this._reloadPalettes
++      );
++      window.addEventListener('storage', this._onStorage);
++    }
++  }
++
++  override disconnectedCallback(): void {
++    super.disconnectedCallback();
++    if (typeof window !== 'undefined') {
++      window.removeEventListener(
++        SHAPE_PALETTES_STORAGE_EVENT,
++        this._reloadPalettes
++      );
++      window.removeEventListener('storage', this._onStorage);
++    }
++  }
++
++  private readonly _onStorage = (event: StorageEvent) => {
++    const workspaceId = this.edgeless?.store?.workspace?.id;
++    if (!workspaceId) return;
++    if (event.key === getShapePalettesStorageKey(workspaceId)) {
++      this._reloadPalettes();
++    }
++  };
++
++  private readonly _reloadPalettes = () => {
++    const workspaceId = this.edgeless?.store?.workspace?.id;
++    if (!workspaceId) {
++      this._palettes = filterShapePalettes(shapePalettes, 'line');
++      this._paletteIndex = this._paletteIndex % this._paletteCount;
++      this.requestUpdate();
++      return;
++    }
++
++    this._loadedWorkspaceId = workspaceId;
++
++    const stored = readStoredShapePalettes(workspaceId);
++    this._palettes = filterShapePalettes(stored ?? shapePalettes, 'line');
++    this._paletteIndex = this._paletteIndex % this._paletteCount;
++    this.requestUpdate();
++  };
++
++  private _ensureWorkspacePalettesLoaded() {
++    const workspaceId = this.edgeless?.store?.workspace?.id;
++    if (workspaceId && workspaceId !== this._loadedWorkspaceId) {
++      this._reloadPalettes();
++    }
++  }
++
++  private readonly _togglePalette = () => {
++    this._paletteIndex = (this._paletteIndex + 1) % this._paletteCount;
++    this._activeColorKey = undefined;
++    setToolPaletteMemory(this._memoryKey, {
++      index: this._paletteIndex,
++      activeKey: undefined,
++    });
++    this.requestUpdate();
++  };
++
++  private _resolveActiveKey(color: Color) {
++    if (typeof color !== 'string') return undefined;
++    const { strokePalettes } = getShapePaletteDataFrom(
++      this._palettes,
++      this._paletteIndex % this._paletteCount
++    );
++    const index = strokePalettes.findIndex(p => p.value === color);
++    return index >= 0 ? shapePaletteKeys[index] : undefined;
++  }
++
+   private readonly _onPickColor = (e: ColorEvent) => {
+-    let color = e.detail.value;
++    this._activeColorKey = e.detail.key;
++    setToolPaletteMemory(this._memoryKey, {
++      index: this._paletteIndex,
++      activeKey: this._activeColorKey,
++    });
++
++    let color = e.detail.value as string;
+     if (this.pen$.peek() === 'highlighter') {
+-      color = adjustColorAlpha(color, 0.3);
++      color = adjustColorAlpha(color, 0.3) as string;
+     }
+     this.onChange({ color });
+   };
+@@ -109,6 +235,7 @@ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+   override type = [BrushTool, HighlighterTool];
+ 
+   override render() {
++    this._ensureWorkspacePalettesLoaded();
+     const {
+       _theme$: { value: theme },
+       colors$: {
+@@ -121,6 +248,11 @@ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+         value: { type, color, lineWidth },
+       },
+     } = this;
++    const { strokePalettes } = getShapePaletteDataFrom(
++      this._palettes,
++      this._paletteIndex % this._paletteCount
++    );
++    const activeKey = this._activeColorKey ?? this._resolveActiveKey(color);
+ 
+     const lineWidths =
+       type === 'brush' ? BRUSH_LINE_WIDTHS : HIGHLIGHTER_LINE_WIDTHS;
+@@ -175,17 +307,28 @@ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+           >
+           </edgeless-line-width-panel>
+           <menu-divider .vertical=${true}></menu-divider>
+-          <edgeless-color-panel
+-            class="one-way"
+-            @select=${this._onPickColor}
+-            .value=${color}
+-            .theme=${theme}
+-            .palettes=${DefaultTheme.StrokeColorShortPalettes}
+-            .shouldKeepColor=${true}
+-            .hasTransparent=${!this.edgeless.store
+-              .get(FeatureFlagService)
+-              .getFlag('enable_color_picker')}
+-          ></edgeless-color-panel>
++          <div class="color-panel-container">
++            <edgeless-color-panel
++              class="one-way"
++              .value=${color}
++              .theme=${theme}
++              .palettes=${strokePalettes}
++              .activeKey=${activeKey}
++              .hasTransparent=${!this.edgeless.store
++                .get(FeatureFlagService)
++                .getFlag('enable_color_picker')}
++              @select=${this._onPickColor}
++            ></edgeless-color-panel>
++            <edgeless-tool-icon-button
++              class="palette-toggle-button"
++              .tooltip=${'Next palette'}
++              .activeMode=${'background'}
++              .iconSize=${'20px'}
++              @click=${this._togglePalette}
++            >
++              ${ArrowUpSmallIcon()}
++            </edgeless-tool-icon-button>
++          </div>
+         </div>
+       </edgeless-slide-menu>
+     `;
+@@ -212,4 +355,8 @@ export class EdgelessPenMenu extends EdgelessToolbarToolMixin(
+     tip: string;
+     shortcut: string;
+   }>;
++
++  get _paletteCount() {
++    return Math.max(1, this._palettes.length);
++  }
+ }
+diff --git a/blocksuite/affine/gfx/brush/tsconfig.json b/blocksuite/affine/gfx/brush/tsconfig.json
+index c5af4eeca3..d9287b4b3d 100644
+--- a/blocksuite/affine/gfx/brush/tsconfig.json
++++ b/blocksuite/affine/gfx/brush/tsconfig.json
+@@ -10,6 +10,7 @@
+     { "path": "../../blocks/surface" },
+     { "path": "../../components" },
+     { "path": "../../ext-loader" },
++    { "path": "../shape" },
+     { "path": "../../model" },
+     { "path": "../../shared" },
+     { "path": "../../widgets/edgeless-toolbar" },
+diff --git a/blocksuite/affine/gfx/connector/package.json b/blocksuite/affine/gfx/connector/package.json
+index 407000d6a2..8162395fce 100644
+--- a/blocksuite/affine/gfx/connector/package.json
++++ b/blocksuite/affine/gfx/connector/package.json
+@@ -13,6 +13,7 @@
+     "@blocksuite/affine-block-surface": "workspace:*",
+     "@blocksuite/affine-components": "workspace:*",
+     "@blocksuite/affine-ext-loader": "workspace:*",
++    "@blocksuite/affine-gfx-shape": "workspace:*",
+     "@blocksuite/affine-gfx-text": "workspace:*",
+     "@blocksuite/affine-model": "workspace:*",
+     "@blocksuite/affine-rich-text": "workspace:*",
+diff --git a/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts b/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
+index 06e1a34ce8..f2b9c95213 100644
+--- a/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
++++ b/blocksuite/affine/gfx/connector/src/toolbar/connector-menu.ts
+@@ -1,8 +1,15 @@
+ import {
+-  ConnectorMode,
+-  DefaultTheme,
+-  type LineWidth,
+-} from '@blocksuite/affine-model';
++  filterShapePalettes,
++  getShapePaletteDataFrom,
++  getShapePalettesStorageKey,
++  getToolPaletteMemory,
++  readStoredShapePalettes,
++  setToolPaletteMemory,
++  SHAPE_PALETTES_STORAGE_EVENT,
++  shapePaletteKeys,
++  shapePalettes,
++} from '@blocksuite/affine-gfx-shape';
++import { ConnectorMode, type LineWidth } from '@blocksuite/affine-model';
+ import {
+   EditPropsStore,
+   FeatureFlagService,
+@@ -12,6 +19,7 @@ import type { ColorEvent } from '@blocksuite/affine-shared/utils';
+ import { EdgelessToolbarToolMixin } from '@blocksuite/affine-widget-edgeless-toolbar';
+ import { SignalWatcher } from '@blocksuite/global/lit';
+ import {
++  ArrowUpSmallIcon,
+   ConnectorCIcon,
+   ConnectorEIcon,
+   ConnectorLIcon,
+@@ -99,8 +107,36 @@ export class EdgelessConnectorMenu extends EdgelessToolbarToolMixin(
+       background-color: var(--affine-border-color);
+       display: inline-block;
+     }
++
++    .color-panel-container {
++      display: flex;
++      align-items: center;
++      gap: 8px;
++    }
++
++    .palette-toggle-button {
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      border-radius: 999px;
++    }
++
++    .palette-toggle-button svg {
++      fill: none;
++      stroke: var(--affine-icon-color);
++    }
+   `;
+ 
++  private readonly _memoryKey = 'connector';
++
++  private _paletteIndex = 0;
++
++  private _activeColorKey: string | undefined;
++
++  private _loadedWorkspaceId: string | undefined;
++
++  private _palettes = filterShapePalettes(shapePalettes, 'line');
++
+   private readonly _props$ = computed(() => {
+     const { mode, stroke, strokeWidth } =
+       this.edgeless.std.get(EditPropsStore).lastProps$.value.connector;
+@@ -111,10 +147,96 @@ export class EdgelessConnectorMenu extends EdgelessToolbarToolMixin(
+     return this.edgeless.std.get(ThemeProvider).theme$.value;
+   });
+ 
++  override connectedCallback(): void {
++    super.connectedCallback();
++    const memory = getToolPaletteMemory(this._memoryKey);
++    this._reloadPalettes();
++    queueMicrotask(() => this._reloadPalettes());
++    this._paletteIndex = memory.index % this._paletteCount;
++    this._activeColorKey = memory.activeKey;
++
++    if (typeof window !== 'undefined') {
++      window.addEventListener(
++        SHAPE_PALETTES_STORAGE_EVENT,
++        this._reloadPalettes
++      );
++      window.addEventListener('storage', this._onStorage);
++    }
++  }
++
++  override disconnectedCallback(): void {
++    super.disconnectedCallback();
++    if (typeof window !== 'undefined') {
++      window.removeEventListener(
++        SHAPE_PALETTES_STORAGE_EVENT,
++        this._reloadPalettes
++      );
++      window.removeEventListener('storage', this._onStorage);
++    }
++  }
++
++  private readonly _onStorage = (event: StorageEvent) => {
++    const workspaceId = this.edgeless?.store?.workspace?.id;
++    if (!workspaceId) return;
++    if (event.key === getShapePalettesStorageKey(workspaceId)) {
++      this._reloadPalettes();
++    }
++  };
++
++  private readonly _reloadPalettes = () => {
++    const workspaceId = this.edgeless?.store?.workspace?.id;
++    if (!workspaceId) {
++      this._palettes = filterShapePalettes(shapePalettes, 'line');
++      this._paletteIndex = this._paletteIndex % this._paletteCount;
++      this.requestUpdate();
++      return;
++    }
++
++    this._loadedWorkspaceId = workspaceId;
++
++    const stored = readStoredShapePalettes(workspaceId);
++    this._palettes = filterShapePalettes(stored ?? shapePalettes, 'line');
++    this._paletteIndex = this._paletteIndex % this._paletteCount;
++    this.requestUpdate();
++  };
++
++  private _ensureWorkspacePalettesLoaded() {
++    const workspaceId = this.edgeless?.store?.workspace?.id;
++    if (workspaceId && workspaceId !== this._loadedWorkspaceId) {
++      this._reloadPalettes();
++    }
++  }
++
++  private readonly _togglePalette = () => {
++    this._paletteIndex = (this._paletteIndex + 1) % this._paletteCount;
++    this._activeColorKey = undefined;
++    setToolPaletteMemory(this._memoryKey, {
++      index: this._paletteIndex,
++      activeKey: undefined,
++    });
++    this.requestUpdate();
++  };
++
++  private _resolveActiveKey(stroke: unknown) {
++    if (typeof stroke !== 'string') return undefined;
++    const { strokePalettes } = getShapePaletteDataFrom(
++      this._palettes,
++      this._paletteIndex % this._paletteCount
++    );
++    const index = strokePalettes.findIndex(p => p.value === stroke);
++    return index >= 0 ? shapePaletteKeys[index] : undefined;
++  }
++
+   override type = ConnectorTool;
+ 
+   override render() {
++    this._ensureWorkspacePalettesLoaded();
+     const { stroke, strokeWidth, mode } = this._props$.value;
++    const { strokePalettes } = getShapePaletteDataFrom(
++      this._palettes,
++      this._paletteIndex % this._paletteCount
++    );
++    const activeKey = this._activeColorKey ?? this._resolveActiveKey(stroke);
+     const connectorModeButtonGroup = ConnectorModeButtonGroup(
+       mode,
+       this.onChange
+@@ -132,17 +254,35 @@ export class EdgelessConnectorMenu extends EdgelessToolbarToolMixin(
+           >
+           </edgeless-line-width-panel>
+           <div class="submenu-divider"></div>
+-          <edgeless-color-panel
+-            class="one-way"
+-            .value=${stroke}
+-            .theme=${this._theme$.value}
+-            .palettes=${DefaultTheme.StrokeColorShortPalettes}
+-            .hasTransparent=${!this.edgeless.store
+-              .get(FeatureFlagService)
+-              .getFlag('enable_color_picker')}
+-            @select=${(e: ColorEvent) =>
+-              this.onChange({ stroke: e.detail.value })}
+-          ></edgeless-color-panel>
++          <div class="color-panel-container">
++            <edgeless-color-panel
++              class="one-way"
++              .value=${stroke}
++              .theme=${this._theme$.value}
++              .palettes=${strokePalettes}
++              .activeKey=${activeKey}
++              .hasTransparent=${!this.edgeless.store
++                .get(FeatureFlagService)
++                .getFlag('enable_color_picker')}
++              @select=${(e: ColorEvent) => {
++                this._activeColorKey = e.detail.key;
++                setToolPaletteMemory(this._memoryKey, {
++                  index: this._paletteIndex,
++                  activeKey: this._activeColorKey,
++                });
++                this.onChange({ stroke: e.detail.value });
++              }}
++            ></edgeless-color-panel>
++            <edgeless-tool-icon-button
++              class="palette-toggle-button"
++              .tooltip=${'Next palette'}
++              .activeMode=${'background'}
++              .iconSize=${'20px'}
++              @click=${this._togglePalette}
++            >
++              ${ArrowUpSmallIcon()}
++            </edgeless-tool-icon-button>
++          </div>
+         </div>
+       </edgeless-slide-menu>
+     `;
+@@ -150,4 +290,8 @@ export class EdgelessConnectorMenu extends EdgelessToolbarToolMixin(
+ 
+   @property({ attribute: false })
+   accessor onChange!: (props: Record<string, unknown>) => void;
++
++  get _paletteCount() {
++    return Math.max(1, this._palettes.length);
++  }
+ }
+diff --git a/blocksuite/affine/gfx/shape/src/draggable/index.ts b/blocksuite/affine/gfx/shape/src/draggable/index.ts
+index 4f2585ab3e..95e8cedc89 100644
+--- a/blocksuite/affine/gfx/shape/src/draggable/index.ts
++++ b/blocksuite/affine/gfx/shape/src/draggable/index.ts
+@@ -1,3 +1,5 @@
++export * from './palette-memory';
++export * from './palettes';
+ export * from './shape-draggable';
+ export * from './shape-menu';
+ export * from './shape-tool-button';
+diff --git a/blocksuite/affine/gfx/shape/src/draggable/palette-memory.ts b/blocksuite/affine/gfx/shape/src/draggable/palette-memory.ts
+new file mode 100644
+index 0000000000..3f27f35449
+--- /dev/null
++++ b/blocksuite/affine/gfx/shape/src/draggable/palette-memory.ts
+@@ -0,0 +1,14 @@
++type PaletteMemory = {
++  index: number;
++  activeKey?: string;
++};
++
++const TOOL_PALETTE_MEMORY = new Map<string, PaletteMemory>();
++
++export function getToolPaletteMemory(key: string): PaletteMemory {
++  return TOOL_PALETTE_MEMORY.get(key) ?? { index: 0 };
++}
++
++export function setToolPaletteMemory(key: string, memory: PaletteMemory) {
++  TOOL_PALETTE_MEMORY.set(key, memory);
++}
+diff --git a/blocksuite/affine/gfx/shape/src/draggable/palettes.ts b/blocksuite/affine/gfx/shape/src/draggable/palettes.ts
+new file mode 100644
+index 0000000000..2717b8c993
+--- /dev/null
++++ b/blocksuite/affine/gfx/shape/src/draggable/palettes.ts
+@@ -0,0 +1,105 @@
++import {
++  DefaultTheme,
++  type Palette,
++  type ShapePalette,
++  type ShapePaletteStyle,
++} from '@blocksuite/affine-model';
++
++export type { ShapePalette, ShapePaletteStyle };
++
++export const SHAPE_PALETTES_STORAGE_VERSION = 1;
++export const SHAPE_PALETTES_STORAGE_EVENT = 'affine:shape-palettes-updated';
++
++export function getShapePalettesStorageKey(workspaceId: string) {
++  return `affine:workspace:${workspaceId}:shape-palettes:v${SHAPE_PALETTES_STORAGE_VERSION}`;
++}
++
++export const shapePaletteKeys = DefaultTheme.FillColorShortPalettes.map(
++  palette => palette.key
++);
++
++export const shapePalettes: ShapePalette[] = DefaultTheme.ShapePalettes;
++
++export function getShapePaletteData(index: number) {
++  return getShapePaletteDataFrom(shapePalettes, index);
++}
++
++export function getShapePaletteDataFrom(
++  palettes: ShapePalette[],
++  index: number
++) {
++  const source = palettes.length ? palettes : shapePalettes;
++  const palette = source[index % source.length];
++  const stylesByKey = new Map(
++    shapePaletteKeys.map((key, styleIndex) => [key, palette.styles[styleIndex]])
++  );
++  const fillPalettes = shapePaletteKeys.map((key, styleIndex) => ({
++    key,
++    value: palette.styles[styleIndex].fill,
++  }));
++  const strokePalettes = shapePaletteKeys.map((key, styleIndex) => ({
++    key,
++    value: palette.styles[styleIndex].stroke,
++  }));
++  const ringPalettes = shapePaletteKeys
++    .map((key, styleIndex) => ({
++      key,
++      value: palette.styles[styleIndex].ringColor,
++    }))
++    .filter(item => item.value !== undefined) as Palette[];
++  const gradientPalettes = shapePaletteKeys
++    .map((key, styleIndex) => ({
++      key,
++      value: palette.styles[styleIndex].gradientFinal,
++      direction: palette.styles[styleIndex].gradientDirection,
++    }))
++    .filter(item => item.value !== undefined) as {
++    key: string;
++    value: Palette['value'];
++    direction?: ShapePaletteStyle['gradientDirection'];
++  }[];
++
++  return {
++    palette,
++    stylesByKey,
++    fillPalettes,
++    strokePalettes,
++    ringPalettes,
++    gradientPalettes,
++  };
++}
++
++export function readStoredShapePalettes(
++  workspaceId: string | undefined
++): ShapePalette[] | null {
++  if (!workspaceId || typeof window === 'undefined') return null;
++  try {
++    const raw = localStorage.getItem(getShapePalettesStorageKey(workspaceId));
++    if (!raw) return null;
++    const parsed = JSON.parse(raw) as ShapePalette[];
++    if (!Array.isArray(parsed) || !parsed.length) return null;
++    const valid = parsed.filter(
++      palette =>
++        palette &&
++        typeof palette.id === 'string' &&
++        Array.isArray(palette.styles) &&
++        palette.styles.length >= shapePaletteKeys.length
++    );
++    return valid.length ? valid : null;
++  } catch {
++    return null;
++  }
++}
++
++export function filterShapePalettes(
++  palettes: ShapePalette[],
++  target: 'line' | 'fill'
++) {
++  const filtered = palettes.filter(palette =>
++    target === 'line'
++      ? palette.showInLine !== false
++      : palette.showInFill !== false
++  );
++
++  return filtered.length ? filtered : shapePalettes;
++}
+diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
+index 3bbf1cdfc5..9096f6a67f 100644
+--- a/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
++++ b/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
+@@ -1,7 +1,11 @@
++import { EdgelessCRUDIdentifier } from '@blocksuite/affine-block-surface';
+ import {
++  type Color,
++  ConnectorElementModel,
+   DefaultTheme,
+   isTransparent,
+   type Palette,
++  ShapeElementModel,
+   type ShapeName,
+   ShapeStyle,
+   ShapeType,
+@@ -13,7 +17,11 @@ import {
+ } from '@blocksuite/affine-shared/services';
+ import type { ColorEvent } from '@blocksuite/affine-shared/utils';
+ import { SignalWatcher, WithDisposable } from '@blocksuite/global/lit';
+-import { StyleGeneralIcon, StyleScribbleIcon } from '@blocksuite/icons/lit';
++import {
++  ArrowUpSmallIcon,
++  StyleGeneralIcon,
++  StyleScribbleIcon,
++} from '@blocksuite/icons/lit';
+ import type { BlockComponent } from '@blocksuite/std';
+ import {
+   GfxControllerIdentifier,
+@@ -26,10 +34,23 @@ import { when } from 'lit/directives/when.js';
+ 
+ import { ShapeTool } from '../shape-tool';
+ import { ShapeComponentConfig } from '../toolbar';
++import { getToolPaletteMemory, setToolPaletteMemory } from './palette-memory';
++import {
++  filterShapePalettes,
++  getShapePaletteDataFrom,
++  getShapePalettesStorageKey,
++  readStoredShapePalettes,
++  SHAPE_PALETTES_STORAGE_EVENT,
++  shapePaletteKeys,
++  shapePalettes,
++  type ShapePaletteStyle,
++} from './palettes';
+ 
+ export class EdgelessShapeMenu extends SignalWatcher(
+   WithDisposable(LitElement)
+ ) {
++  private readonly _memoryKey = 'shape';
++
+   static override styles = css`
+     :host {
+       display: flex;
+@@ -48,8 +69,23 @@ export class EdgelessShapeMenu extends SignalWatcher(
+     }
+     .shape-type-container svg,
+     .shape-style-container svg {
+-      fill: var(--affine-icon-color);
+-      stroke: none;
++      fill: none;
++      stroke: var(--affine-icon-color);
++    }
++    .color-panel-container {
++      display: flex;
++      align-items: center;
++      gap: 8px;
++    }
++    .palette-toggle-button {
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      border-radius: 999px;
++    }
++    .palette-toggle-button svg {
++      fill: none;
++      stroke: var(--affine-icon-color);
+     }
+     menu-divider {
+       height: 24px;
+@@ -59,15 +95,29 @@ export class EdgelessShapeMenu extends SignalWatcher(
+ 
+   private readonly _shapeName$: Signal<ShapeName> = signal(ShapeType.Rect);
+ 
++  private readonly _paletteIndex$ = signal(0);
++
++  private readonly _palettes$ = signal(shapePalettes);
++
++  private readonly _activeColorKey$ = signal<string | undefined>(undefined);
++
++  private readonly _activePalettes$ = computed(() => {
++    return getShapePaletteDataFrom(
++      this._palettes$.value,
++      this._paletteIndex$.value
++    );
++  });
++
+   @property({ attribute: false })
+   accessor edgeless!: BlockComponent;
+ 
+   private readonly _props$ = computed(() => {
+     const shapeName: ShapeName = this._shapeName$.value;
+-    const { shapeStyle, fillColor, strokeColor, radius } =
+-      this.edgeless.std.get(EditPropsStore).lastProps$.value[
+-        `shape:${shapeName}`
+-      ];
++    const propsStore = this.edgeless.std.get(EditPropsStore);
++    const shapeProps =
++      propsStore.lastProps$.value[this._getShapeLastPropsKey(shapeName)] ??
++      propsStore.lastProps$.value['shape:rect'];
++    const { shapeStyle, fillColor, strokeColor, radius } = shapeProps;
+     return {
+       shapeStyle,
+       shapeName,
+@@ -78,35 +128,185 @@ export class EdgelessShapeMenu extends SignalWatcher(
+   });
+ 
+   private readonly _setFillColor = ({ key, value }: Palette) => {
+-    const filled = !isTransparent(value);
+-    const fillColor = value;
+-    const strokeColor = filled
+-      ? DefaultTheme.StrokeColorShortPalettes.find(
+-          palette => palette.key === key
+-        )?.value
+-      : DefaultTheme.StrokeColorShortMap.Grey;
+-
+-    const { shapeName } = this._props$.value;
+-    this.edgeless.std
+-      .get(EditPropsStore)
+-      .recordLastProps(`shape:${shapeName}`, {
+-        filled,
+-        fillColor,
+-        strokeColor,
+-      });
+-    this.onChange(shapeName);
++    const { stylesByKey } = this._activePalettes$.value;
++    const style = stylesByKey.get(key);
++    const fillColor = style?.fill ?? value;
++    const filled = !isTransparent(fillColor);
++    const strokeColor = style?.stroke ?? DefaultTheme.StrokeColorShortMap.Grey;
++    const strokeWidth = style?.strokeWidth;
++    const strokeStyle = style?.strokeStyle;
++    const gradientFinal = style?.gradientFinal ?? fillColor;
++    const gradientDirection = style?.gradientDirection ?? 'S';
++    this._activeColorKey$.value = key;
++    setToolPaletteMemory(this._memoryKey, {
++      index: this._paletteIndex$.value,
++      activeKey: key,
++    });
++
++    const shapeName = this._getActiveShapeName();
++    const nextProps: {
++      filled: boolean;
++      fillColor: Color;
++      strokeColor: Color;
++      strokeWidth?: ShapePaletteStyle['strokeWidth'];
++      strokeStyle?: ShapePaletteStyle['strokeStyle'];
++      gradientFinal?: ShapePaletteStyle['gradientFinal'];
++      gradientDirection?: ShapePaletteStyle['gradientDirection'];
++    } = {
++      filled,
++      fillColor,
++      strokeColor,
++      gradientFinal,
++      gradientDirection,
++    };
++    if (strokeWidth) nextProps.strokeWidth = strokeWidth;
++    if (strokeStyle) nextProps.strokeStyle = strokeStyle;
++    this._recordShapeProps(shapeName, nextProps);
++
++    const applied = this._applyColorToSelection(
++      fillColor,
++      strokeColor,
++      strokeWidth,
++      strokeStyle,
++      gradientFinal,
++      gradientDirection
++    );
++    if (!applied) {
++      this._refreshShapeOverlay();
++    }
+   };
+ 
++  private _recordShapeProps(
++    shapeName: ShapeName,
++    props: Parameters<EditPropsStore['recordLastProps']>[1]
++  ) {
++    const propsStore = this.edgeless.std.get(EditPropsStore);
++    propsStore.recordLastProps(this._getShapeLastPropsKey(shapeName), props);
++  }
++
++  private _getShapeLastPropsKey(shapeName: ShapeName) {
++    const normalized =
++      shapeName === ShapeType.Rect ||
++      shapeName === ShapeType.Ellipse ||
++      shapeName === 'roundedRect'
++        ? shapeName
++        : ShapeType.Triangle;
++
++    return `shape:${normalized}` as const;
++  }
++
++  private _getActiveShapeName() {
++    const option = this.edgeless.std
++      .get(GfxControllerIdentifier)
++      .tool.currentToolOption$.peek();
++
++    if (option && option.toolType === ShapeTool) {
++      const shapeName = (option as ToolOptionWithType<ShapeTool>).options
++        ?.shapeName;
++      if (shapeName) {
++        this._shapeName$.value = shapeName;
++        return shapeName;
++      }
++    }
++
++    return this._shapeName$.value;
++  }
++
+   private readonly _setShapeStyle = (shapeStyle: ShapeStyle) => {
+-    const { shapeName } = this._props$.value;
++    const shapeName = this._getActiveShapeName();
+     this.edgeless.std
+       .get(EditPropsStore)
+-      .recordLastProps(`shape:${shapeName}`, {
++      .recordLastProps(this._getShapeLastPropsKey(shapeName), {
+         shapeStyle,
+       });
+     this.onChange(shapeName);
+   };
+ 
++  private readonly _togglePalette = () => {
++    const presetCount = this._palettes$.value.length;
++    const nextIndex = (this._paletteIndex$.value + 1) % presetCount;
++    this._paletteIndex$.value = nextIndex;
++    this._activeColorKey$.value = undefined;
++    setToolPaletteMemory(this._memoryKey, {
++      index: nextIndex,
++      activeKey: undefined,
++    });
++  };
++
++  private _applyColorToSelection(
++    fillColor: Color,
++    strokeColor?: Color,
++    strokeWidth?: ShapePaletteStyle['strokeWidth'],
++    strokeStyle?: ShapePaletteStyle['strokeStyle'],
++    gradientFinal?: ShapePaletteStyle['gradientFinal'],
++    gradientDirection?: ShapePaletteStyle['gradientDirection']
++  ) {
++    const selection = this.edgeless.std.get(GfxControllerIdentifier).selection;
++    const elements = selection.selectedElements;
++    if (!elements.length) return false;
++
++    const filled = !isTransparent(fillColor);
++    const appliedStrokeColor =
++      strokeColor ?? DefaultTheme.StrokeColorShortMap.Grey;
++    const crud = this.edgeless.std.get(EdgelessCRUDIdentifier);
++    let applied = false;
++
++    for (const element of elements) {
++      if (element instanceof ConnectorElementModel) {
++        if (!applied) this.edgeless.store.captureSync();
++        const connectorUpdates: Record<string, unknown> = {
++          stroke: appliedStrokeColor,
++        };
++        if (strokeWidth) connectorUpdates.strokeWidth = strokeWidth;
++        if (strokeStyle) connectorUpdates.strokeStyle = strokeStyle;
++        crud.updateElement(element.id, connectorUpdates);
++        this.edgeless.std
++          .get(EditPropsStore)
++          .recordLastProps('connector', connectorUpdates);
++        applied = true;
++        continue;
++      }
++      if (element instanceof ShapeElementModel) {
++        if (!applied) this.edgeless.store.captureSync();
++        const shapeUpdates: Record<string, unknown> = {
++          fillColor,
++          strokeColor: appliedStrokeColor,
++          filled,
++          gradientFinal,
++          gradientDirection,
++        };
++        if (strokeWidth) shapeUpdates.strokeWidth = strokeWidth;
++        if (strokeStyle) shapeUpdates.strokeStyle = strokeStyle;
++        crud.updateElement(element.id, shapeUpdates);
++        applied = true;
++      }
++    }
++
++    return applied;
++  }
++
++  private _refreshShapeOverlay() {
++    const controller = this.edgeless.std
++      .get(GfxControllerIdentifier)
++      .tool.currentTool$.peek();
++    if (controller instanceof ShapeTool) {
++      controller.createOverlay();
++    }
++  }
++
++  private _resolveActiveKey(fillColor?: Color, strokeColor?: Color) {
++    if (!fillColor) return undefined;
++    const { palette } = this._activePalettes$.value;
++    const index = palette.styles.findIndex(
++      style => style.fill === fillColor && style.stroke === strokeColor
++    );
++    if (index >= 0) return shapePaletteKeys[index];
++    const fallbackIndex = palette.styles.findIndex(
++      style => style.fill === fillColor
++    );
++    return fallbackIndex >= 0 ? shapePaletteKeys[fallbackIndex] : undefined;
++  }
++
+   private readonly _theme$ = computed(() => {
+     return this.edgeless.std.get(ThemeProvider).theme$.value;
+   });
+@@ -114,6 +314,38 @@ export class EdgelessShapeMenu extends SignalWatcher(
+   override connectedCallback(): void {
+     super.connectedCallback();
+ 
++    const workspaceId = this.edgeless.store.workspace.id;
++    const reloadPalettes = () => {
++      const stored = readStoredShapePalettes(workspaceId);
++      this._palettes$.value = filterShapePalettes(
++        stored ?? shapePalettes,
++        'fill'
++      );
++      const count = this._palettes$.value.length;
++      this._paletteIndex$.value = count ? this._paletteIndex$.value % count : 0;
++    };
++
++    const memory = getToolPaletteMemory(this._memoryKey);
++    this._paletteIndex$.value = memory.index;
++    this._activeColorKey$.value = memory.activeKey;
++    reloadPalettes();
++
++    if (typeof window !== 'undefined') {
++      this.disposables.addFromEvent(
++        window,
++        SHAPE_PALETTES_STORAGE_EVENT,
++        () => {
++          reloadPalettes();
++        }
++      );
++      this.disposables.addFromEvent(window, 'storage', (event: Event) => {
++        const storageEvent = event as StorageEvent;
++        if (storageEvent.key === getShapePalettesStorageKey(workspaceId)) {
++          reloadPalettes();
++        }
++      });
++    }
++
+     const gfx = this.edgeless.std.get(GfxControllerIdentifier);
+     this._disposables.add(
+       effect(() => {
+@@ -131,7 +363,13 @@ export class EdgelessShapeMenu extends SignalWatcher(
+   }
+ 
+   override render() {
+-    const { fillColor, shapeStyle, shapeName } = this._props$.value;
++    const { fillColor, strokeColor, shapeStyle, shapeName } =
++      this._props$.value;
++    const { fillPalettes, strokePalettes, ringPalettes, gradientPalettes } =
++      this._activePalettes$.value;
++    const activeKey =
++      this._activeColorKey$.value ??
++      this._resolveActiveKey(fillColor, strokeColor);
+ 
+     return html`
+       <edgeless-slide-menu>
+@@ -178,7 +416,10 @@ export class EdgelessShapeMenu extends SignalWatcher(
+                     .active=${shapeName === name}
+                     .activeMode=${'background'}
+                     .iconSize=${'20px'}
+-                    @click=${() => this.onChange(name)}
++                    @click=${() => {
++                      this._shapeName$.value = name;
++                      this.onChange(name);
++                    }}
+                   >
+                     ${shapeStyle === ShapeStyle.General
+                       ? generalIcon
+@@ -189,16 +430,31 @@ export class EdgelessShapeMenu extends SignalWatcher(
+             )}
+           </div>
+           <menu-divider .vertical=${true}></menu-divider>
+-          <edgeless-color-panel
+-            class="one-way"
+-            .value=${fillColor}
+-            .theme=${this._theme$.value}
+-            .palettes=${DefaultTheme.FillColorShortPalettes}
+-            .hasTransparent=${!this.edgeless.store
+-              .get(FeatureFlagService)
+-              .getFlag('enable_color_picker')}
+-            @select=${(e: ColorEvent) => this._setFillColor(e.detail)}
+-          ></edgeless-color-panel>
++          <div class="color-panel-container">
++            <edgeless-color-panel
++              class="one-way"
++              .value=${fillColor}
++              .theme=${this._theme$.value}
++              .palettes=${fillPalettes}
++              .outlinePalettes=${strokePalettes}
++              .ringPalettes=${ringPalettes}
++              .gradientPalettes=${gradientPalettes}
++              .activeKey=${activeKey}
++              .hasTransparent=${!this.edgeless.store
++                .get(FeatureFlagService)
++                .getFlag('enable_color_picker')}
++              @select=${(e: ColorEvent) => this._setFillColor(e.detail)}
++            ></edgeless-color-panel>
++            <edgeless-tool-icon-button
++              class="palette-toggle-button"
++              .tooltip=${'Next palette'}
++              .activeMode=${'background'}
++              .iconSize=${'20px'}
++              @click=${this._togglePalette}
++            >
++              ${ArrowUpSmallIcon()}
++            </edgeless-tool-icon-button>
++          </div>
+         </div>
+       </edgeless-slide-menu>
+     `;
+diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
+index 1e3442a1f6..596316cd18 100644
+--- a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
++++ b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
+@@ -1,9 +1,10 @@
+-import { type ShapeName, ShapeType } from '@blocksuite/affine-model';
++import type { ShapeName } from '@blocksuite/affine-model';
+ import { EdgelessToolbarToolMixin } from '@blocksuite/affine-widget-edgeless-toolbar';
+ import { SignalWatcher } from '@blocksuite/global/lit';
+ import { css, html, LitElement } from 'lit';
+ 
+ import { ShapeTool } from '../shape-tool.js';
++import type { EdgelessShapeMenu } from './shape-menu.js';
+ import type { DraggableShape } from './utils.js';
+ 
+ export class EdgelessShapeToolButton extends EdgelessToolbarToolMixin(
+@@ -32,19 +33,17 @@ export class EdgelessShapeToolButton extends EdgelessToolbarToolMixin(
+   private readonly _handleWrapperClick = () => {
+     if (this.tryDisposePopper()) return;
+ 
+-    this.setEdgelessTool(this.type, {
+-      shapeName: ShapeType.Rect,
+-    });
+     if (!this.popper) this._toggleMenu();
+   };
+ 
+   override type = ShapeTool;
+ 
+   private _toggleMenu() {
+-    this.createPopper('edgeless-shape-menu', this, {
++    this.createPopper('edgeless-shape-menu' as any, this, {
+       setProps: ele => {
+-        ele.edgeless = this.edgeless;
+-        ele.onChange = (shapeName: ShapeName) => {
++        const menu = ele as EdgelessShapeMenu;
++        menu.edgeless = this.edgeless;
++        menu.onChange = (shapeName: ShapeName) => {
+           this.setEdgelessTool(this.type, {
+             shapeName,
+           });
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
+index ff4eaa713f..bd6cc18644 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
+@@ -8,6 +8,34 @@ import { manageClassNames, setStyles } from './utils';
+ 
+ const SVG_NS = 'http://www.w3.org/2000/svg';
+ 
++const gradientDirectionMap: Record<
++  NonNullable<ShapeElementModel['gradientDirection']>,
++  { x1: number; y1: number; x2: number; y2: number }
++> = {
++  S: { x1: 0, y1: 0, x2: 0, y2: 1 },
++  W: { x1: 1, y1: 0, x2: 0, y2: 0 },
++  N: { x1: 0, y1: 1, x2: 0, y2: 0 },
++  E: { x1: 0, y1: 0, x2: 1, y2: 0 },
++  SE: { x1: 0, y1: 0, x2: 1, y2: 1 },
++  SW: { x1: 1, y1: 0, x2: 0, y2: 1 },
++  NE: { x1: 0, y1: 1, x2: 1, y2: 0 },
++  NW: { x1: 1, y1: 1, x2: 0, y2: 0 },
++};
++
++const cssGradientDirectionMap: Record<
++  NonNullable<ShapeElementModel['gradientDirection']>,
++  string
++> = {
++  S: 'to bottom',
++  W: 'to left',
++  N: 'to top',
++  E: 'to right',
++  SE: 'to bottom right',
++  SW: 'to bottom left',
++  NE: 'to top right',
++  NW: 'to top left',
++};
++
+ type RetainedShapeDom = {
+   polygon: SVGPolygonElement | null;
+   svg: SVGSVGElement | null;
+@@ -101,6 +129,35 @@ function removeSvg(retained: RetainedShapeDom) {
+   retained.polygon = null;
+ }
+ 
++const appendGradientDefs = (
++  svg: SVGSVGElement,
++  gradientId: string,
++  fillColor: string,
++  gradientFinal: string,
++  gradientDirection: NonNullable<ShapeElementModel['gradientDirection']>,
++  width: number,
++  height: number
++) => {
++  const defs = document.createElementNS(SVG_NS, 'defs');
++  const gradient = document.createElementNS(SVG_NS, 'linearGradient');
++  const coords = gradientDirectionMap[gradientDirection];
++  gradient.setAttribute('id', gradientId);
++  gradient.setAttribute('gradientUnits', 'userSpaceOnUse');
++  gradient.setAttribute('x1', String(coords.x1 * width));
++  gradient.setAttribute('y1', String(coords.y1 * height));
++  gradient.setAttribute('x2', String(coords.x2 * width));
++  gradient.setAttribute('y2', String(coords.y2 * height));
++  const start = document.createElementNS(SVG_NS, 'stop');
++  start.setAttribute('offset', '0%');
++  start.setAttribute('stop-color', fillColor);
++  const end = document.createElementNS(SVG_NS, 'stop');
++  end.setAttribute('offset', '100%');
++  end.setAttribute('stop-color', gradientFinal);
++  gradient.append(start, end);
++  defs.append(gradient);
++  svg.append(defs);
++};
++
+ function getOrCreateText(retained: RetainedShapeDom, element: HTMLElement) {
+   if (retained.text) {
+     return retained.text;
+@@ -186,6 +243,12 @@ export const shapeDomRenderer = (
+     DefaultTheme.shapeStrokeColor,
+     true
+   );
++  const gradientFinal = model.gradientFinal
++    ? renderer.getColorValue(model.gradientFinal, fillColor, true)
++    : undefined;
++  const gradientDirection = model.gradientDirection ?? 'S';
++  const hasGradient =
++    Boolean(gradientFinal) && model.filled && gradientFinal !== fillColor;
+ 
+   element.style.width = `${unscaledWidth * zoom}px`;
+   element.style.height = `${unscaledHeight * zoom}px`;
+@@ -198,6 +261,7 @@ export const shapeDomRenderer = (
+     // For diamond and triangle, fill and border are handled by inline SVG
+     element.style.border = 'none'; // Ensure no standard CSS border interferes
+     element.style.backgroundColor = 'transparent'; // Host element is transparent
++    element.style.backgroundImage = 'none';
+     const { polygon, svg } = getOrCreateSvg(retained, element);
+ 
+     const strokeW = model.strokeWidth;
+@@ -228,9 +292,28 @@ export const shapeDomRenderer = (
+         ? '12, 12'
+         : 'none';
+     // Determine fill color
+-    const finalFillColor = model.filled ? fillColor : 'transparent';
++    const finalFillColor = model.filled
++      ? hasGradient
++        ? `url(#shape-grad-${model.id})`
++        : fillColor
++      : 'transparent';
+ 
+     svg.setAttribute('viewBox', `0 0 ${unscaledWidth} ${unscaledHeight}`);
++    while (svg.firstChild) {
++      svg.firstChild.remove();
++    }
++    if (hasGradient && gradientFinal) {
++      appendGradientDefs(
++        svg,
++        `shape-grad-${model.id}`,
++        fillColor,
++        gradientFinal,
++        gradientDirection,
++        unscaledWidth,
++        unscaledHeight
++      );
++    }
++    svg.append(polygon);
+     polygon.setAttribute('points', svgPoints);
+     polygon.setAttribute('fill', finalFillColor);
+     polygon.setAttribute('stroke', finalStrokeColor);
+@@ -244,6 +327,12 @@ export const shapeDomRenderer = (
+     // Standard rendering for other shapes (e.g., rect, ellipse)
+     removeSvg(retained);
+     element.style.backgroundColor = model.filled ? fillColor : 'transparent';
++    if (hasGradient && gradientFinal) {
++      const direction = cssGradientDirectionMap[gradientDirection];
++      element.style.backgroundImage = `linear-gradient(${direction}, ${fillColor}, ${gradientFinal})`;
++    } else {
++      element.style.backgroundImage = 'none';
++    }
+     applyBorderStyles(model, element, strokeColor, zoom); // Uses standard CSS border
+   }
+ 
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
+index 77991c0200..13bed47e43 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
+@@ -25,6 +25,57 @@ export type Colors = {
+   strokeColor: string;
+ };
+ 
++const gradientDirectionMap: Record<
++  NonNullable<ShapeElementModel['gradientDirection']>,
++  [number, number, number, number]
++> = {
++  S: [0, 0, 0, 1],
++  W: [1, 0, 0, 0],
++  N: [0, 1, 0, 0],
++  E: [0, 0, 1, 0],
++  SE: [0, 0, 1, 1],
++  SW: [1, 0, 0, 1],
++  NE: [0, 1, 1, 0],
++  NW: [1, 1, 0, 0],
++};
++
++export const resolveGradientFill = (
++  ctx: CanvasRenderingContext2D,
++  renderer: CanvasRenderer,
++  model: ShapeElementModel | LocalShapeElementModel,
++  fillColor: string,
++  width: number,
++  height: number
++) => {
++  const gradientFinal =
++    'gradientFinal' in model ? model.gradientFinal : undefined;
++  if (!gradientFinal) return fillColor;
++  const gradientFinalColor = renderer.getColorValue(
++    gradientFinal,
++    fillColor,
++    true
++  );
++  if (gradientFinalColor === fillColor) return fillColor;
++  const direction =
++    'gradientDirection' in model && model.gradientDirection
++      ? model.gradientDirection
++      : 'S';
++  const [x0, y0, x1, y1] = gradientDirectionMap[direction];
++  const gradient = ctx.createLinearGradient(
++    x0 * width,
++    y0 * height,
++    x1 * width,
++    y1 * height
++  );
++  try {
++    gradient.addColorStop(0, fillColor);
++    gradient.addColorStop(1, gradientFinalColor);
++  } catch {
++    return fillColor;
++  }
++  return gradient;
++};
++
+ export function drawGeneralShape(
+   ctx: CanvasRenderingContext2D,
+   shapeModel: ShapeElementModel | LocalShapeElementModel,
+@@ -53,7 +104,9 @@ export function drawGeneralShape(
+ 
+   ctx.lineWidth = shapeModel.strokeWidth;
+   ctx.strokeStyle = strokeColor;
+-  ctx.fillStyle = filled ? fillColor : 'transparent';
++  ctx.fillStyle = filled
++    ? resolveGradientFill(ctx, renderer, shapeModel, fillColor, w, h)
++    : 'transparent';
+ 
+   switch (shapeModel.strokeStyle) {
+     case 'none':
+diff --git a/blocksuite/affine/gfx/shape/src/shape-tool.ts b/blocksuite/affine/gfx/shape/src/shape-tool.ts
+index 8210448aea..d02dd857da 100644
+--- a/blocksuite/affine/gfx/shape/src/shape-tool.ts
++++ b/blocksuite/affine/gfx/shape/src/shape-tool.ts
+@@ -80,6 +80,8 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+       shapeType: getShapeType(shapeName),
+       xywh: bound.serialize(),
+       radius: attributes.radius,
++      gradientFinal: attributes.gradientFinal,
++      gradientDirection: attributes.gradientDirection,
+     });
+ 
+     this.std.getOptional(TelemetryProvider)?.track('CanvasElementAdded', {
+diff --git a/blocksuite/affine/gfx/shape/src/toolbar/config.ts b/blocksuite/affine/gfx/shape/src/toolbar/config.ts
+index 5a6a146c6a..312c9ebc0c 100644
+--- a/blocksuite/affine/gfx/shape/src/toolbar/config.ts
++++ b/blocksuite/affine/gfx/shape/src/toolbar/config.ts
+@@ -148,13 +148,25 @@ export const shapeToolbarConfig = {
+         const originalStrokeColor = firstModel.strokeColor;
+ 
+         const mapped = models.map(
+-          ({ filled, fillColor, strokeColor, strokeWidth, strokeStyle }) => ({
++          ({
++            filled,
++            fillColor,
++            strokeColor,
++            strokeWidth,
++            strokeStyle,
++            gradientFinal,
++            gradientDirection,
++          }) => ({
+             fillColor: filled
+               ? resolveColor(fillColor, theme)
+               : DefaultTheme.transparent,
+             strokeColor: resolveColor(strokeColor, theme),
+             strokeWidth,
+             strokeStyle,
++            gradientFinal: gradientFinal
++              ? resolveColor(gradientFinal, theme)
++              : undefined,
++            gradientDirection,
+           })
+         );
+         const fillColor =
+@@ -167,6 +179,9 @@ export const shapeToolbarConfig = {
+           getMostCommonValue(mapped, 'strokeWidth') ?? LineWidth.Four;
+         const strokeStyle =
+           getMostCommonValue(mapped, 'strokeStyle') ?? StrokeStyle.Solid;
++        const gradientFinal = getMostCommonValue(mapped, 'gradientFinal');
++        const gradientDirection =
++          getMostCommonValue(mapped, 'gradientDirection') ?? undefined;
+ 
+         const pickColorWrapper =
+           (field: string, pickCallback: (palette: Palette) => void) =>
+@@ -215,6 +230,39 @@ export const shapeToolbarConfig = {
+           });
+         });
+ 
++        const onPickGradientFinalColor = pickColorWrapper(
++          'gradientFinal',
++          palette => {
++            const value = palette.value;
++            const crud = ctx.std.get(EdgelessCRUDIdentifier);
++            models.forEach(model => {
++              crud.updateElement(model.id, {
++                gradientFinal: value,
++                gradientDirection: model.gradientDirection ?? 'S',
++              });
++            });
++          }
++        );
++
++        const onPickGradientDirection = (e: CustomEvent<string>) => {
++          e.stopPropagation();
++          const direction = e.detail;
++          const normalized =
++            direction === 'none' ? undefined : direction.toUpperCase();
++
++          for (const model of models) {
++            ctx.std.get(EdgelessCRUDIdentifier).updateElement(model.id, {
++              gradientDirection: normalized as
++                | ShapeElementModel['gradientDirection']
++                | undefined,
++              gradientFinal:
++                normalized && !model.gradientFinal
++                  ? model.fillColor
++                  : model.gradientFinal,
++            });
++          }
++        };
++
+         const onPickStrokeStyle = (e: CustomEvent<LineDetailType>) => {
+           e.stopPropagation();
+ 
+@@ -241,10 +289,14 @@ export const shapeToolbarConfig = {
+         return html`
+           <edgeless-shape-color-picker
+             @pickFillColor=${onPickFillColor}
++            @pickGradientFinalColor=${onPickGradientFinalColor}
++            @pickGradientDirection=${onPickGradientDirection}
+             @pickStrokeColor=${onPickStrokeColor}
+             @pickStrokeStyle=${onPickStrokeStyle}
+             .payload=${{
+               fillColor,
++              gradientFinal,
++              gradientDirection,
+               strokeColor,
+               strokeWidth,
+               strokeStyle,
+@@ -252,6 +304,7 @@ export const shapeToolbarConfig = {
+               originalStrokeColor,
+               theme,
+               enableCustomColor,
++              enableGradient: true,
+             }}
+           >
+           </edgeless-shape-color-picker>
+diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
+index 81446124a5..0ec88aefed 100644
+--- a/blocksuite/affine/model/src/elements/shape/shape.ts
++++ b/blocksuite/affine/model/src/elements/shape/shape.ts
+@@ -37,6 +37,8 @@ export type ShapeProps = BaseElementProps & {
+   radius: number;
+   filled: boolean;
+   fillColor: Color;
++  gradientFinal?: Color;
++  gradientDirection?: 'S' | 'W' | 'N' | 'E' | 'SE' | 'SW' | 'NE' | 'NW';
+   strokeWidth: number;
+   strokeColor: Color;
+   strokeStyle: StrokeStyle;
+@@ -101,6 +103,21 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
+   @field()
+   accessor fillColor: Color = DefaultTheme.shapeFillColor;
+ 
++  @field()
++  accessor gradientFinal: Color | undefined = undefined;
++
++  @field()
++  accessor gradientDirection:
++    | 'S'
++    | 'W'
++    | 'N'
++    | 'E'
++    | 'SE'
++    | 'SW'
++    | 'NE'
++    | 'NW'
++    | undefined = undefined;
++
+   @field()
+   accessor filled: boolean = false;
+ 
+diff --git a/blocksuite/affine/model/src/themes/default.ts b/blocksuite/affine/model/src/themes/default.ts
+index 3b358521a1..4002ad8c63 100644
+--- a/blocksuite/affine/model/src/themes/default.ts
++++ b/blocksuite/affine/model/src/themes/default.ts
+@@ -1,4 +1,4 @@
+-import type { Palette, Theme } from './types';
++import type { Palette, ShapePalette, ShapePaletteStyle, Theme } from './types';
+ import { buildPalettes, getColorByKey, pureBlack, pureWhite } from './utils';
+ 
+ const Transparent = 'transparent';
+@@ -109,6 +109,144 @@ const ShapeTextColorPalettes: Palette[] = [
+   { key: 'Black', value: pureBlack },
+ ] as const;
+ 
++const shapePaletteTail: ShapePaletteStyle[] = [
++  {
++    fill: White,
++    stroke: White,
++    ringColor: Medium.Grey,
++  },
++  {
++    fill: Black,
++    stroke: Black,
++    ringColor: White,
++  },
++  {
++    fill: Transparent,
++    stroke: Medium.Grey,
++    ringColor: Medium.Grey,
++  },
++];
++
++const withShapePaletteTail = (styles: ShapePaletteStyle[]) => [
++  ...styles,
++  ...shapePaletteTail,
++];
++
++const ShapePalettes: ShapePalette[] = [
++  {
++    id: 'affine',
++    showInLine: true,
++    showInFill: true,
++    styles: withShapePaletteTail(
++      FillColorShortPalettes.slice(0, 8).map((palette, index) => ({
++        fill: palette.value,
++        stroke:
++          StrokeColorShortPalettes[index]?.value ?? StrokeColorShortMap.Grey,
++      }))
++    ),
++  },
++  {
++    id: 'material-light',
++    showInLine: true,
++    showInFill: true,
++    styles: withShapePaletteTail([
++      { fill: '#f8cecc', stroke: '#b85450' },
++      { fill: '#ffe6cc', stroke: '#d79b00' },
++      { fill: '#fff2cc', stroke: '#d6b656' },
++      { fill: '#d5e8d4', stroke: '#82b366' },
++      { fill: '#dae8fc', stroke: '#6c8ebf' },
++      { fill: '#e1d5e7', stroke: '#9673a6' },
++      { fill: '#e6d0de', stroke: '#996185' },
++      { fill: '#f5f5f5', stroke: '#666666' },
++    ]),
++  },
++  {
++    id: 'material-gradient',
++    showInLine: false,
++    showInFill: true,
++    styles: withShapePaletteTail([
++      {
++        fill: '#f8cecc',
++        stroke: '#b85450',
++        gradientFinal: '#e36863',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#FFE6CC',
++        stroke: '#d79b00',
++        gradientFinal: '#FFB940',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#FFF2CC',
++        stroke: '#d6b656',
++        gradientFinal: '#FADD4B',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#d5e8d4',
++        stroke: '#82b366',
++        gradientFinal: '#97d077',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#dae8fc',
++        stroke: '#6c8ebf',
++        gradientFinal: '#88B4F2',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#e6d0de',
++        stroke: '#996185',
++        gradientFinal: '#D5739D',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#F5DFF5',
++        stroke: '#994D96',
++        gradientFinal: '#FAA0F4',
++        gradientDirection: 'S',
++      },
++      {
++        fill: '#f5f5f5',
++        stroke: '#666666',
++        gradientFinal: '#b3b3b3',
++        gradientDirection: 'S',
++      },
++    ]),
++  },
++  {
++    id: 'bold',
++    showInLine: true,
++    showInFill: true,
++    styles: withShapePaletteTail([
++      { fill: '#a20025', stroke: '#6f0000' },
++      { fill: '#d80073', stroke: '#a50040' },
++      { fill: '#6a00ff', stroke: '#3700cc' },
++      { fill: '#0050ef', stroke: '#001dbc' },
++      { fill: '#1ba1e2', stroke: '#006eaf' },
++      { fill: '#008a00', stroke: '#005700' },
++      { fill: '#60a917', stroke: '#2d7600' },
++      { fill: '#FFDE3B', stroke: '#B09929' },
++    ]),
++  },
++  {
++    id: 'muted',
++    showInLine: true,
++    showInFill: true,
++    styles: withShapePaletteTail([
++      { fill: '#e51400', stroke: '#b20000' },
++      { fill: '#fa6800', stroke: '#c73500' },
++      { fill: '#f0a30a', stroke: '#bd7000' },
++      { fill: '#e3c800', stroke: '#b09500' },
++      { fill: '#6d8764', stroke: '#3a5431' },
++      { fill: '#647687', stroke: '#314354' },
++      { fill: '#76608a', stroke: '#432d57' },
++      { fill: '#A0522D', stroke: '#6D1F00' },
++    ]),
++  },
++];
++
+ export const DefaultTheme: Theme = {
+   pureBlack,
+   pureWhite,
+@@ -133,4 +271,5 @@ export const DefaultTheme: Theme = {
+   FillColorShortPalettes,
+   ShapeTextColorShortMap,
+   ShapeTextColorShortPalettes,
++  ShapePalettes,
+ } as const;
+diff --git a/blocksuite/affine/model/src/themes/types.ts b/blocksuite/affine/model/src/themes/types.ts
+index 4f6ca8b5f6..767a05dc40 100644
+--- a/blocksuite/affine/model/src/themes/types.ts
++++ b/blocksuite/affine/model/src/themes/types.ts
+@@ -1,5 +1,6 @@
+ import { z } from 'zod';
+ 
++import { StrokeStyle } from '../consts/index';
+ import { ColorSchema } from './color';
+ 
+ export const PaletteSchema = z.object({
+@@ -9,6 +10,29 @@ export const PaletteSchema = z.object({
+ 
+ export type Palette = z.infer<typeof PaletteSchema>;
+ 
++export const ShapePaletteStyleSchema = z.object({
++  fill: ColorSchema,
++  stroke: ColorSchema,
++  strokeWidth: z.number().optional(),
++  strokeStyle: z.nativeEnum(StrokeStyle).optional(),
++  ringColor: ColorSchema.optional(),
++  gradientFinal: ColorSchema.optional(),
++  gradientDirection: z
++    .enum(['S', 'W', 'N', 'E', 'SE', 'SW', 'NE', 'NW'])
++    .optional(),
++});
++
++export type ShapePaletteStyle = z.infer<typeof ShapePaletteStyleSchema>;
++
++export const ShapePaletteSchema = z.object({
++  id: z.string(),
++  showInLine: z.boolean().optional(),
++  showInFill: z.boolean().optional(),
++  styles: z.array(ShapePaletteStyleSchema),
++});
++
++export type ShapePalette = z.infer<typeof ShapePaletteSchema>;
++
+ export const ThemeSchema = z.object({
+   pureBlack: z.string(),
+   pureWhite: z.string(),
+@@ -36,6 +60,9 @@ export const ThemeSchema = z.object({
+   FillColorShortPalettes: z.array(PaletteSchema),
+   ShapeTextColorShortMap: z.record(z.string(), ColorSchema),
+   ShapeTextColorShortPalettes: z.array(PaletteSchema),
++
++  // Shape/pen/connector palette presets
++  ShapePalettes: z.array(ShapePaletteSchema),
+ });
+ 
+ export type Theme = z.infer<typeof ThemeSchema>;
+diff --git a/blocksuite/affine/shared/src/services/edit-props-store.ts b/blocksuite/affine/shared/src/services/edit-props-store.ts
+index 06ac58178e..22e07d589c 100644
+--- a/blocksuite/affine/shared/src/services/edit-props-store.ts
++++ b/blocksuite/affine/shared/src/services/edit-props-store.ts
+@@ -44,6 +44,14 @@ const LocalPropsSchema = z.object({
+   presentNoFrameToastShown: z.boolean(),
+ 
+   autoHideEmbedHTMLFullScreenToolbar: z.boolean(),
++
++  // Grid settings
++  edgelessShowGrid: z.boolean(),
++  edgelessGridSize: z.number(),
++  // Snap settings
++  edgelessSnapToGuides: z.boolean(),
++  edgelessSnapToGrid: z.boolean(),
++  edgelessConnectorSnapToGrid: z.boolean(),
+ });
+ 
+ type SessionProps = z.infer<typeof SessionPropsSchema>;
+@@ -137,6 +145,16 @@ export class EditPropsStore extends LifeCycleWatcher {
+         return 'blocksuite:' + id + ':showBidirectional';
+       case 'autoHideEmbedHTMLFullScreenToolbar':
+         return 'blocksuite:embedHTML:autoHideFullScreenToolbar';
++      case 'edgelessShowGrid':
++        return 'blocksuite:edgeless:showGrid';
++      case 'edgelessGridSize':
++        return 'blocksuite:edgeless:gridSize';
++      case 'edgelessSnapToGuides':
++        return 'blocksuite:edgeless:snapToGuides';
++      case 'edgelessSnapToGrid':
++        return 'blocksuite:edgeless:snapToGrid';
++      case 'edgelessConnectorSnapToGrid':
++        return 'blocksuite:edgeless:connectorSnapToGrid';
+       default:
+         return key;
+     }
+@@ -189,11 +207,34 @@ export class EditPropsStore extends LifeCycleWatcher {
+     if (Object.keys(overrideProps).length === 0) return;
+ 
+     const innerProps = this.innerProps$.value;
+-    const nextProps = mergeWith(
+-      clonedeep(innerProps),
+-      { [key]: overrideProps },
+-      customizer
+-    );
++    const cloned = clonedeep(innerProps);
++    const nextProps = mergeWith(cloned, { [key]: overrideProps }, customizer);
++    this.innerProps$.value = OptionalPropsSchema.parse(nextProps);
++  }
++
++  recordLastPropsBatch(
++    entries: Array<{
++      key: LastPropsKey;
++      props: Partial<LastProps[LastPropsKey]>;
++    }>
++  ) {
++    if (!entries.length) return;
++    const innerProps = this.innerProps$.value;
++    let nextProps = clonedeep(innerProps);
++    let updated = false;
++    for (const entry of entries) {
++      const schema = OptionalPropsSchema._def.innerType.shape[entry.key];
++      if (!schema) continue;
++      const overrideProps = schema.parse(entry.props);
++      if (Object.keys(overrideProps).length === 0) continue;
++      nextProps = mergeWith(
++        nextProps,
++        { [entry.key]: overrideProps },
++        customizer
++      );
++      updated = true;
++    }
++    if (!updated) return;
+     this.innerProps$.value = OptionalPropsSchema.parse(nextProps);
+   }
+ 
+diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
+index 67d1ce1869..ec618e7b01 100644
+--- a/blocksuite/affine/shared/src/utils/zod-schema.ts
++++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
+@@ -107,6 +107,8 @@ export const HighlighterSchema = z
+ const DEFAULT_SHAPE = {
+   color: DefaultTheme.shapeTextColor,
+   fillColor: DefaultTheme.shapeFillColor,
++  gradientFinal: undefined,
++  gradientDirection: undefined,
+   strokeColor: DefaultTheme.shapeStrokeColor,
+   strokeStyle: StrokeStyle.Solid,
+   strokeWidth: LineWidth.Two,
+@@ -124,6 +126,10 @@ const DEFAULT_SHAPE = {
+ const ShapeObject = {
+   color: ColorSchema,
+   fillColor: ColorSchema,
++  gradientFinal: ColorSchema.optional(),
++  gradientDirection: z
++    .enum(['S', 'W', 'N', 'E', 'SE', 'SW', 'NE', 'NW'])
++    .optional(),
+   strokeColor: ColorSchema,
+   strokeStyle: StrokeStyleSchema,
+   strokeWidth: z.number(),
+diff --git a/yarn.lock b/yarn.lock
+index 2cc337e7c8..67e36b1d5e 100644
+--- a/yarn.lock
++++ b/yarn.lock
+@@ -389,6 +389,7 @@ __metadata:
+     "@blocksuite/affine-block-root": "workspace:*"
+     "@blocksuite/affine-components": "workspace:*"
+     "@blocksuite/affine-ext-loader": "workspace:*"
++    "@blocksuite/affine-gfx-shape": "workspace:*"
+     "@blocksuite/affine-shared": "workspace:*"
+     "@blocksuite/global": "workspace:*"
+     "@blocksuite/icons": "npm:^2.2.17"
+@@ -2255,10 +2256,12 @@ __metadata:
+     "@blocksuite/affine-block-surface": "workspace:*"
+     "@blocksuite/affine-components": "workspace:*"
+     "@blocksuite/affine-ext-loader": "workspace:*"
++    "@blocksuite/affine-gfx-shape": "workspace:*"
+     "@blocksuite/affine-model": "workspace:*"
+     "@blocksuite/affine-shared": "workspace:*"
+     "@blocksuite/affine-widget-edgeless-toolbar": "workspace:*"
+     "@blocksuite/global": "workspace:*"
++    "@blocksuite/icons": "npm:^2.2.17"
+     "@blocksuite/std": "workspace:*"
+     "@preact/signals-core": "npm:^1.8.0"
+     lit: "npm:^3.2.0"
+@@ -2272,6 +2275,7 @@ __metadata:
+     "@blocksuite/affine-block-surface": "workspace:*"
+     "@blocksuite/affine-components": "workspace:*"
+     "@blocksuite/affine-ext-loader": "workspace:*"
++    "@blocksuite/affine-gfx-shape": "workspace:*"
+     "@blocksuite/affine-gfx-text": "workspace:*"
+     "@blocksuite/affine-model": "workspace:*"
+     "@blocksuite/affine-rich-text": "workspace:*"

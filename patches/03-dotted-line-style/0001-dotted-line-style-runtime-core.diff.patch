@@ -1,0 +1,303 @@
+diff --git a/blocksuite/affine/blocks/note/src/components/edgeless-note-background.ts b/blocksuite/affine/blocks/note/src/components/edgeless-note-background.ts
+index fcd8f962f2..9c83eeef22 100644
+--- a/blocksuite/affine/blocks/note/src/components/edgeless-note-background.ts
++++ b/blocksuite/affine/blocks/note/src/components/edgeless-note-background.ts
+@@ -55,7 +55,12 @@ export class EdgelessNoteBackground extends SignalWatcher(
+       borderRadius: borderRadius + 'px',
+       backgroundColor: backgroundColor,
+       borderWidth: `${borderSize}px`,
+-      borderStyle: borderStyle === StrokeStyle.Dash ? 'dashed' : borderStyle,
++      borderStyle:
++        borderStyle === StrokeStyle.Dash
++          ? 'dashed'
++          : borderStyle === StrokeStyle.Dot
++            ? 'dotted'
++            : borderStyle,
+       boxShadow: !shadowType ? 'none' : `var(${shadowType})`,
+     };
+   });
+diff --git a/blocksuite/affine/components/src/edgeless-line-styles-panel/line-styles-panel.ts b/blocksuite/affine/components/src/edgeless-line-styles-panel/line-styles-panel.ts
+index 41a568ed59..f9bc9bd583 100644
+--- a/blocksuite/affine/components/src/edgeless-line-styles-panel/line-styles-panel.ts
++++ b/blocksuite/affine/components/src/edgeless-line-styles-panel/line-styles-panel.ts
+@@ -1,7 +1,11 @@
+-import { LineWidth, StrokeStyle } from '@blocksuite/affine-model';
++import {
++  BRUSH_LINE_WIDTHS,
++  LineWidth,
++  StrokeStyle,
++} from '@blocksuite/affine-model';
+ import { WithDisposable } from '@blocksuite/global/lit';
+ import { BanIcon, DashLineIcon, StraightLineIcon } from '@blocksuite/icons/lit';
+-import { css, html, LitElement } from 'lit';
++import { css, html, LitElement, svg } from 'lit';
+ import { property } from 'lit/decorators.js';
+ import { classMap } from 'lit/directives/class-map.js';
+ import { repeat } from 'lit/directives/repeat.js';
+@@ -27,6 +31,23 @@ const LINE_STYLE_LIST = [
+     value: StrokeStyle.Dash,
+     icon: DashLineIcon(),
+   },
++  {
++    key: 'Dot',
++    value: StrokeStyle.Dot,
++    icon: svg`<svg
++      width="20"
++      height="20"
++      viewBox="0 0 20 20"
++      fill="none"
++      xmlns="http://www.w3.org/2000/svg"
++    >
++      <circle cx="5" cy="15" r="1" fill="currentColor" />
++      <circle cx="8" cy="12" r="1" fill="currentColor" />
++      <circle cx="11" cy="9" r="1" fill="currentColor" />
++      <circle cx="14" cy="6" r="1" fill="currentColor" />
++      <circle cx="17" cy="3" r="1" fill="currentColor" />
++    </svg>`,
++  },
+   {
+     key: 'None',
+     value: StrokeStyle.None,
+@@ -57,6 +78,7 @@ export class EdgelessLineStylesPanel extends WithDisposable(LitElement) {
+     return html`
+       <edgeless-line-width-panel
+         .disabled=${lineStyle === StrokeStyle.None}
++        .lineWidths=${this.lineWidths}
+         .selectedSize=${lineSize}
+         @select=${(e: CustomEvent<LineWidth>) => {
+           e.stopPropagation();
+@@ -102,8 +124,12 @@ export class EdgelessLineStylesPanel extends WithDisposable(LitElement) {
+   accessor lineStyles: StrokeStyle[] = [
+     StrokeStyle.Solid,
+     StrokeStyle.Dash,
++    StrokeStyle.Dot,
+     StrokeStyle.None,
+   ];
++
++  @property({ attribute: false })
++  accessor lineWidths: number[] = BRUSH_LINE_WIDTHS.slice(0, -1);
+ }
+ 
+ declare global {
+diff --git a/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts b/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts
+index 3f9d992344..154c15e305 100644
+--- a/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts
++++ b/blocksuite/affine/gfx/connector/src/renderer/dom-renderer.ts
+@@ -373,6 +373,9 @@ export const connectorBaseDomRenderer = (
+   path.setAttribute('stroke-width', String(strokeWidth));
+   if (strokeStyle === 'dash') {
+     path.setAttribute('stroke-dasharray', '12,12');
++  } else if (strokeStyle === 'dot') {
++    const gap = strokeWidth * 2.5;
++    path.setAttribute('stroke-dasharray', `0, ${gap}`);
+   } else {
+     path.removeAttribute('stroke-dasharray');
+   }
+diff --git a/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts b/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
+index 6d6b1e205f..f70851eb67 100644
+--- a/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
++++ b/blocksuite/affine/gfx/connector/src/renderer/element-renderer.ts
+@@ -18,6 +18,7 @@ import {
+   DefaultTheme,
+   type LocalConnectorElementModel,
+   type PointStyle,
++  StrokeStyle,
+ } from '@blocksuite/affine-model';
+ import {
+   getBezierParameters,
+@@ -87,7 +88,7 @@ export const connector: ElementRenderer<
+     ctx,
+     rc,
+     points,
+-    strokeStyle === 'dash',
++    strokeStyle,
+     mode === ConnectorMode.Curve,
+     strokeColor
+   );
+@@ -132,7 +133,7 @@ function renderPoints(
+   ctx: CanvasRenderingContext2D,
+   rc: RoughCanvas,
+   points: PointLocation[],
+-  dash: boolean,
++  strokeStyle: StrokeStyle,
+   curve: boolean,
+   stroke: string
+ ) {
+@@ -143,7 +144,12 @@ function renderPoints(
+       seed,
+       roughness,
+       stroke,
+-      strokeLineDash: dash ? [12, 12] : undefined,
++      strokeLineDash:
++        strokeStyle === StrokeStyle.Dash
++          ? [12, 12]
++          : strokeStyle === StrokeStyle.Dot
++            ? [0, strokeWidth * 2.5]
++            : undefined,
+       strokeWidth,
+     };
+     if (curve) {
+@@ -161,7 +167,13 @@ function renderPoints(
+     ctx.lineWidth = strokeWidth;
+     ctx.lineJoin = 'round';
+     ctx.lineCap = 'round';
+-    dash && ctx.setLineDash([12, 12]);
++    if (strokeStyle === StrokeStyle.Dash) {
++      ctx.setLineDash([12, 12]);
++    } else if (strokeStyle === StrokeStyle.Dot) {
++      ctx.setLineDash([0, strokeWidth * 2.5]);
++    } else {
++      ctx.setLineDash([]);
++    }
+     ctx.beginPath();
+     if (curve) {
+       points.forEach((point, index) => {
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
+index bd6cc18644..a456be31e7 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
+@@ -182,8 +182,18 @@ function applyBorderStyles(
+ ) {
+   element.style.border =
+     model.strokeStyle !== 'none'
+-      ? `${model.strokeWidth * zoom}px ${model.strokeStyle === 'dash' ? 'dashed' : 'solid'} ${strokeColor}`
++      ? `${model.strokeWidth * zoom}px ${
++          model.strokeStyle === 'dash'
++            ? 'dashed'
++            : model.strokeStyle === 'dot'
++              ? 'dotted'
++              : 'solid'
++        } ${strokeColor}`
+       : 'none';
++  if (model.strokeStyle === 'dot') {
++    element.style.borderStyle = 'dotted';
++    element.style.borderColor = strokeColor;
++  }
+ }
+ 
+ function applyTransformStyles(model: ShapeElementModel, element: HTMLElement) {
+@@ -290,7 +300,9 @@ export const shapeDomRenderer = (
+     const finalStrokeDasharray =
+       model.strokeStyle === 'dash' && finalStrokeColor !== 'transparent'
+         ? '12, 12'
+-        : 'none';
++        : model.strokeStyle === 'dot' && finalStrokeColor !== 'transparent'
++          ? `${Math.max(1, strokeW)}, ${strokeW * 2.5}`
++          : 'none';
+     // Determine fill color
+     const finalFillColor = model.filled
+       ? hasGradient
+@@ -323,6 +335,10 @@ export const shapeDomRenderer = (
+     } else {
+       polygon.removeAttribute('stroke-dasharray');
+     }
++    polygon.setAttribute(
++      'stroke-linecap',
++      model.strokeStyle === 'dot' ? 'round' : 'butt'
++    );
+   } else {
+     // Standard rendering for other shapes (e.g., rect, ellipse)
+     removeSvg(retained);
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
+index a5eeba9f58..e8564670da 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
+@@ -56,7 +56,12 @@ export function diamond(
+       {
+         seed,
+         roughness: shapeStyle === 'Scribbled' ? roughness : 0,
+-        strokeLineDash: strokeStyle === 'dash' ? [12, 12] : undefined,
++        strokeLineDash:
++          strokeStyle === 'dash'
++            ? [12, 12]
++            : strokeStyle === 'dot'
++              ? [Math.max(1, strokeWidth), strokeWidth * 2.5]
++              : undefined,
+         stroke: strokeStyle === 'none' ? 'none' : strokeColor,
+         strokeWidth,
+         fill: filled ? fillColor : undefined,
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
+index 566046f6eb..1e738a9589 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
+@@ -49,7 +49,12 @@ export function ellipse(
+     rc.ellipse(cx, cy, renderWidth, renderHeight, {
+       seed,
+       roughness: shapeStyle === 'Scribbled' ? roughness : 0,
+-      strokeLineDash: strokeStyle === 'dash' ? [12, 12] : undefined,
++      strokeLineDash:
++        strokeStyle === 'dash'
++          ? [12, 12]
++          : strokeStyle === 'dot'
++            ? [Math.max(1, strokeWidth), strokeWidth * 2.5]
++            : undefined,
+       stroke: strokeStyle === 'none' ? 'none' : strokeColor,
+       strokeWidth,
+       fill: filled ? fillColor : undefined,
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
+index 306ac550d6..72e0d0efc4 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
+@@ -76,7 +76,12 @@ export function rect(
+       {
+         seed,
+         roughness,
+-        strokeLineDash: strokeStyle === 'dash' ? [12, 12] : undefined,
++        strokeLineDash:
++          strokeStyle === 'dash'
++            ? [12, 12]
++            : strokeStyle === 'dot'
++              ? [Math.max(1, strokeWidth), strokeWidth * 2.5]
++              : undefined,
+         stroke: strokeStyle === 'none' ? 'none' : strokeColor,
+         strokeWidth,
+         fill: filled ? fillColor : undefined,
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
+index a31eb0c8f0..f52f6ea646 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
+@@ -55,7 +55,12 @@ export function triangle(
+       {
+         seed,
+         roughness: shapeStyle === 'Scribbled' ? roughness : 0,
+-        strokeLineDash: strokeStyle === 'dash' ? [12, 12] : undefined,
++        strokeLineDash:
++          strokeStyle === 'dash'
++            ? [12, 12]
++            : strokeStyle === 'dot'
++              ? [Math.max(1, strokeWidth), strokeWidth * 2.5]
++              : undefined,
+         stroke: strokeStyle === 'none' ? 'none' : strokeColor,
+         strokeWidth,
+         fill: filled ? fillColor : undefined,
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
+index 13bed47e43..f2bf104b34 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
+@@ -115,6 +115,14 @@ export function drawGeneralShape(
+     case 'dash':
+       ctx.setLineDash([12, 12]);
+       break;
++    case 'dot':
++      // Use a short dash with round caps to render dots.
++      ctx.lineCap = 'round';
++      ctx.setLineDash([
++        Math.max(1, shapeModel.strokeWidth),
++        shapeModel.strokeWidth * 2.5,
++      ]);
++      break;
+   }
+ 
+   if (shapeModel.shadow) {
+diff --git a/blocksuite/affine/model/src/consts/note.ts b/blocksuite/affine/model/src/consts/note.ts
+index 49c378a254..4d88a48848 100644
+--- a/blocksuite/affine/model/src/consts/note.ts
++++ b/blocksuite/affine/model/src/consts/note.ts
+@@ -43,6 +43,7 @@ export enum NoteDisplayMode {
+ 
+ export enum StrokeStyle {
+   Dash = 'dash',
++  Dot = 'dot',
+   None = 'none',
+   Solid = 'solid',
+ }
