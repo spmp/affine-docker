@@ -1,21 +1,24 @@
-# Connector Runtime Scope
+# Connector Runtime Scope (diff-first export)
 
-This patch set is the curated connector runtime core.
+Patch strategy:
 
-Included scope:
+- These patches are generated from the final net diff on connector branches, grouped by runtime vs settings scope.
+- They intentionally avoid commit-history `format-patch` exports.
 
-- connector model + consts
-- connector manager/watcher/path/jump rendering
-- connector toolbar/menu/actions
-- connector waypoint actions in edgeless more menu
-- connector Editor settings parity for rounded mode + corner radius
+Patch files:
 
-Excluded from runtime scope on purpose:
+- `0001-connector-runtime-core.diff.patch`
+  - connector model and runtime rendering/path updates
+  - connector toolbar/menu/actions including waypoint actions
+  - removes the `Jump` selector from connector slide menu content
+  - adds full connector endpoint marker set support in model and renderers
 
-- shape package/workspace/lockfile churn
-- test helper changes
+- `0002-connector-settings-ui.diff.patch`
+  - Editor settings updates for connector shape parity and corner radius
+  - start/end endpoint dropdowns show full marker list with icons and scrolling
+  - connector schema defaults/validation wiring required by settings
 
-Related patch layers:
+Excluded scope:
 
-- `06-connector-support-uncertain/` (suspected dependency files)
-- `07-connector-tests/` (test helper and spec adjustments)
+- tests (`tests/**`, `**/__tests__/**`, integration/e2e specs)
+- unrelated workspace/package churn
