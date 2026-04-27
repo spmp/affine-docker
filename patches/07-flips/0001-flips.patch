@@ -394,7 +394,7 @@ index f52f6ea64..1daecf546 100644
        .translateSelf(-cx, -cy)
    );
 diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
-index 0ec88aefe..52ab663f4 100644
+index 0ec88aefe..416ea7270 100644
 --- a/blocksuite/affine/model/src/elements/shape/shape.ts
 +++ b/blocksuite/affine/model/src/elements/shape/shape.ts
 @@ -39,6 +39,8 @@ export type ShapeProps = BaseElementProps & {
@@ -406,18 +406,20 @@ index 0ec88aefe..52ab663f4 100644
    strokeWidth: number;
    strokeColor: Color;
    strokeStyle: StrokeStyle;
-@@ -117,6 +119,10 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
-     | 'NE'
+@@ -118,6 +120,12 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
      | 'NW'
      | undefined = undefined;
+ 
++  @field()
 +  accessor flipX: boolean = false;
 +
 +  @field()
 +  accessor flipY: boolean = false;
- 
++
    @field()
    accessor filled: boolean = false;
-@@ -219,6 +225,12 @@ export class LocalShapeElementModel extends GfxLocalElementModel {
+ 
+@@ -219,6 +227,12 @@ export class LocalShapeElementModel extends GfxLocalElementModel {
    @prop()
    accessor fillColor: Color = DefaultTheme.shapeFillColor;
  
