@@ -1,31 +1,16 @@
-From 6ee73bdca62b641703e253916c9f5c79e77eeaee Mon Sep 17 00:00:00 2001
-From: Patch Test <patch-test@local>
-Date: Sat, 25 Apr 2026 15:34:45 -0600
-Subject: [PATCH 1/2] Flip and rotate is OK, arrow endpoint direction still
- problematic, as is 'next shape' arrow placement for some rotation angles
-
----
- .../root/src/edgeless/configs/toolbar/more.ts | 107 +++++
- .../gfx/connector/src/connector-manager.ts    |  57 ++-
- .../src/element-renderer/shape-dom/index.ts   |  18 +-
- .../src/element-renderer/shape/diamond.ts     |   3 +
- .../src/element-renderer/shape/ellipse.ts     |   3 +
- .../shape/src/element-renderer/shape/rect.ts  |   3 +
- .../src/element-renderer/shape/triangle.ts    |   3 +
- .../affine/model/src/elements/shape/shape.ts  |  14 +
- blocksuite/affine/shared/src/types/index.ts   |   2 +
- .../affine/shared/src/utils/zod-schema.ts     |   4 +
- .../src/edgeless-selected-rect.ts             |  22 +-
- .../std/src/gfx/interactivity/manager.ts      |   1 -
- .../src/gfx/interactivity/resize/manager.ts   |   7 +-
- tests/blocksuite/e2e/edgeless/shape.spec.ts   | 406 ++++++++++++++++++
- 14 files changed, 644 insertions(+), 6 deletions(-)
-
 diff --git a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
-index d4a3651d1f..13faeed9b4 100644
+index d4a3651d1f..1cffea185a 100644
 --- a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
 +++ b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
-@@ -25,11 +25,13 @@ import {
+@@ -15,6 +15,7 @@ import { createGroupFromSelectedCommand } from '@blocksuite/affine-gfx-group';
+ import {
+   AttachmentBlockModel,
+   BookmarkBlockModel,
++  type ConnectorElementModel,
+   EmbedLinkedDocBlockSchema,
+   EmbedLinkedDocModel,
+   EmbedSyncedDocBlockSchema,
+@@ -25,6 +26,7 @@ import {
    MindmapElementModel,
    NoteBlockModel,
    ParagraphBlockModel,
@@ -33,12 +18,6 @@ index d4a3651d1f..13faeed9b4 100644
  } from '@blocksuite/affine-model';
  import type {
    ToolbarActions,
-   ToolbarContext,
- } from '@blocksuite/affine-shared/services';
-+import type { ConnectorElementModel } from '@blocksuite/affine-model';
- import {
-   matchModels,
-   type ReorderingType,
 @@ -50,6 +52,7 @@ import {
  } from '@blocksuite/icons/lit';
  import type { BlockComponent } from '@blocksuite/std';
@@ -159,7 +138,7 @@ index d4a3651d1f..13faeed9b4 100644
    {
      id: 'd.conversions',
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 574dca11da..3767e09d32 100644
+index 574dca11da..8ca6da0d90 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -135,6 +135,8 @@ export function getAnchors(ele: GfxModel) {
@@ -171,7 +150,7 @@ index 574dca11da..3767e09d32 100644
  
    (
      [
-@@ -155,10 +157,63 @@ export function getAnchors(ele: GfxModel) {
+@@ -155,10 +157,66 @@ export function getAnchors(ele: GfxModel) {
        );
        anchors.push({ point: rst[0], coord: bound.toRelative(originPoint) });
      });
@@ -206,7 +185,11 @@ index 574dca11da..3767e09d32 100644
 +  });
  }
  
- function getConnectableRelativePosition(connectable: GfxModel, position: IVec) {
+-function getConnectableRelativePosition(connectable: GfxModel, position: IVec) {
++export function getConnectableRelativePosition(
++  connectable: GfxModel,
++  position: IVec
++) {
 +  const flipX =
 +    'flipX' in connectable &&
 +    Boolean((connectable as { flipX?: boolean }).flipX);
@@ -236,6 +219,59 @@ index 574dca11da..3767e09d32 100644
    const location = connectable.getRelativePointLocation(position);
    if (isVecZero(Vec.sub(position, [0, 0.5])))
      location.tangent = Vec.rot([0, -1], toRadian(connectable.rotate));
+@@ -1296,6 +1354,12 @@ export class ConnectorPathGenerator extends PathGenerator {
+     connector: ConnectorElementModel | LocalConnectorElementModel
+   ) {
+     const { source, target } = connector;
++    const startElement = source.id
++      ? this._getConnectorEndElement(connector, 'source')
++      : null;
++    const endElement = target.id
++      ? this._getConnectorEndElement(connector, 'target')
++      : null;
+     let startPoint: PointLocation | null = null;
+     let endPoint: PointLocation | null = null;
+ 
+@@ -1321,7 +1385,18 @@ export class ConnectorPathGenerator extends PathGenerator {
+       if (!startPoint || !endPoint) return [];
+ 
+       if (source.id) {
+-        const startTangentVertical = Vec.rot(startPoint.tangent, -Math.PI / 2);
++        let startTangentVertical = Vec.rot(startPoint.tangent, -Math.PI / 2);
++        if (startElement && !isVecZero(startTangentVertical)) {
++          const center = Bound.deserialize(startElement.xywh).center;
++          const centerToAnchor = Vec.sub(startPoint, center);
++          if (
++            startTangentVertical[0] * centerToAnchor[0] +
++              startTangentVertical[1] * centerToAnchor[1] <
++            0
++          ) {
++            startTangentVertical = Vec.mul(startTangentVertical, -1);
++          }
++        }
+         startPoint.out = isVecZero(startTangentVertical)
+           ? Vec.mul(Vec.per(Vec.normalize(Vec.sub(startPoint, endPoint))), 20)
+           : Vec.mul(
+@@ -1335,7 +1410,18 @@ export class ConnectorPathGenerator extends PathGenerator {
+             );
+       }
+       if (target.id) {
+-        const endTangentVertical = Vec.rot(endPoint.tangent, -Math.PI / 2);
++        let endTangentVertical = Vec.rot(endPoint.tangent, -Math.PI / 2);
++        if (endElement && !isVecZero(endTangentVertical)) {
++          const center = Bound.deserialize(endElement.xywh).center;
++          const centerToAnchor = Vec.sub(endPoint, center);
++          if (
++            endTangentVertical[0] * centerToAnchor[0] +
++              endTangentVertical[1] * centerToAnchor[1] <
++            0
++          ) {
++            endTangentVertical = Vec.mul(endTangentVertical, -1);
++          }
++        }
+         endPoint.in = isVecZero(endTangentVertical)
+           ? Vec.mul(Vec.per(Vec.normalize(Vec.sub(endPoint, startPoint))), 20)
+           : Vec.mul(
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 index ff4eaa713f..b164960841 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
@@ -429,6 +465,120 @@ index 67d1ce1869..09237e1198 100644
    strokeColor: ColorSchema,
    strokeStyle: StrokeStyleSchema,
    strokeWidth: z.number(),
+diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
+index 81210d817c..ba8febe2f2 100644
+--- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
++++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
+@@ -11,6 +11,7 @@ import {
+ import {
+   type ConnectionOverlay,
+   ConnectorPathGenerator,
++  getConnectableRelativePosition,
+ } from '@blocksuite/affine-gfx-connector';
+ import { mountShapeTextEditor } from '@blocksuite/affine-gfx-shape';
+ import type {
+@@ -192,10 +193,14 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+         if (!this.canShowAutoComplete) return;
+         this._isMoving = true;
+         const { startPosition } = getPosition(type);
++        const sourcePosition = this._mapPositionByFlip(
++          startPosition,
++          this.current
++        );
+         connector = this._addConnector(
+           {
+             id: this.current.id,
+-            position: startPosition,
++            position: sourcePosition,
+           },
+           {
+             position: point,
+@@ -304,15 +309,41 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+   ) {
+     const startBound = this.current.elementBound;
+     const { startPosition, endPosition } = getPosition(type);
++    const startConnectionPosition = this._mapPositionByFlip(
++      startPosition,
++      curShape
++    );
+     const nextShape = {
+       xywh: nextBound.serialize(),
+       rotate: curShape.rotate,
++      flipX: curShape.flipX,
++      flipY: curShape.flipY,
+       shapeType: curShape.shapeType,
+-    };
+-    const startPoint = curShape.getRelativePointLocation(startPosition);
+-    const endPoint = curShape.getRelativePointLocation.call(
++      getLineIntersections(start: IVec, end: IVec) {
++        return shapeMethods[this.shapeType].getLineIntersections(
++          start,
++          end,
++          this
++        );
++      },
++      getRelativePointLocation(point: IVec) {
++        return shapeMethods[this.shapeType].getRelativePointLocation(
++          point,
++          this
++        );
++      },
++    } as ShapeElementModel;
++    const endConnectionPosition = this._mapPositionByFlip(
++      endPosition,
++      nextShape
++    );
++    const startPoint = getConnectableRelativePosition(
++      curShape,
++      startConnectionPosition
++    );
++    const endPoint = getConnectableRelativePosition(
+       nextShape,
+-      endPosition
++      endConnectionPosition
+     );
+ 
+     return this._pathGenerator.generateOrthogonalConnectorPath({
+@@ -323,6 +354,16 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     });
+   }
+ 
++  private _mapPositionByFlip(
++    position: Connection['position'],
++    shape: { flipX?: boolean; flipY?: boolean }
++  ): Connection['position'] {
++    return [
++      shape.flipX ? 1 - position[0] : position[0],
++      shape.flipY ? 1 - position[1] : position[1],
++    ];
++  }
++
+   private _computeNextBound(type: Direction) {
+     if (isShape(this.current)) {
+       const connectedShapes = this._getConnectedElements(this.current).filter(
+@@ -377,14 +418,20 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     if (!id) return;
+     if (isShape(this.current)) {
+       const { startPosition, endPosition } = getPosition(type);
++      const sourcePosition = this._mapPositionByFlip(
++        startPosition,
++        this.current
++      );
++      const targetShape = this.crud.getElementById(id) as ShapeElementModel;
++      const targetPosition = this._mapPositionByFlip(endPosition, targetShape);
+       this._addConnector(
+         {
+           id: this.current.id,
+-          position: startPosition,
++          position: sourcePosition,
+         },
+         {
+           id,
+-          position: endPosition,
++          position: targetPosition,
+         }
+       );
+ 
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
 index be6eae2e59..d628f580df 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
@@ -940,6 +1090,3 @@ index 657e28c87b..1e55d5b409 100644
  //FIXME: need a way to test hand-drawn-like style
  test.skip('change shape fill color', async ({ page }) => {
    await enterPlaygroundRoom(page);
--- 
-2.53.0
-
