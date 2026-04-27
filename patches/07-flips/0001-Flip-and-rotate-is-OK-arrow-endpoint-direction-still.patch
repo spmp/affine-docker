@@ -1,0 +1,945 @@
+From 6ee73bdca62b641703e253916c9f5c79e77eeaee Mon Sep 17 00:00:00 2001
+From: Patch Test <patch-test@local>
+Date: Sat, 25 Apr 2026 15:34:45 -0600
+Subject: [PATCH 1/2] Flip and rotate is OK, arrow endpoint direction still
+ problematic, as is 'next shape' arrow placement for some rotation angles
+
+---
+ .../root/src/edgeless/configs/toolbar/more.ts | 107 +++++
+ .../gfx/connector/src/connector-manager.ts    |  57 ++-
+ .../src/element-renderer/shape-dom/index.ts   |  18 +-
+ .../src/element-renderer/shape/diamond.ts     |   3 +
+ .../src/element-renderer/shape/ellipse.ts     |   3 +
+ .../shape/src/element-renderer/shape/rect.ts  |   3 +
+ .../src/element-renderer/shape/triangle.ts    |   3 +
+ .../affine/model/src/elements/shape/shape.ts  |  14 +
+ blocksuite/affine/shared/src/types/index.ts   |   2 +
+ .../affine/shared/src/utils/zod-schema.ts     |   4 +
+ .../src/edgeless-selected-rect.ts             |  22 +-
+ .../std/src/gfx/interactivity/manager.ts      |   1 -
+ .../src/gfx/interactivity/resize/manager.ts   |   7 +-
+ tests/blocksuite/e2e/edgeless/shape.spec.ts   | 406 ++++++++++++++++++
+ 14 files changed, 644 insertions(+), 6 deletions(-)
+
+diff --git a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
+index d4a3651d1f..13faeed9b4 100644
+--- a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
++++ b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
+@@ -25,11 +25,13 @@ import {
+   MindmapElementModel,
+   NoteBlockModel,
+   ParagraphBlockModel,
++  ShapeElementModel,
+ } from '@blocksuite/affine-model';
+ import type {
+   ToolbarActions,
+   ToolbarContext,
+ } from '@blocksuite/affine-shared/services';
++import type { ConnectorElementModel } from '@blocksuite/affine-model';
+ import {
+   matchModels,
+   type ReorderingType,
+@@ -50,6 +52,7 @@ import {
+ } from '@blocksuite/icons/lit';
+ import type { BlockComponent } from '@blocksuite/std';
+ import { GfxBlockElementModel, type GfxModel } from '@blocksuite/std/gfx';
++import { html } from 'lit';
+ 
+ import { EdgelessClipboardController } from '../../clipboard/clipboard';
+ import { duplicate } from '../../utils/clipboard-utils';
+@@ -207,6 +210,110 @@ export const moreActions = [
+     ],
+   },
+ 
++  {
++    id: 'Z.c.flip',
++    actions: [
++      {
++        id: 'a.flip-horizontal',
++        label: 'Flip Horizontal',
++        icon: html`<svg
++          width="20"
++          height="20"
++          viewBox="0 0 20 20"
++          fill="none"
++          stroke="currentColor"
++          stroke-width="1.5"
++          stroke-linecap="round"
++          stroke-linejoin="round"
++        >
++          <path d="M4 10h12" />
++          <path d="M6 7l-3 3 3 3" />
++          <path d="M14 7l3 3-3 3" />
++        </svg>`,
++        when(ctx) {
++          return ctx.getSurfaceModelsByType(ShapeElementModel).length > 0;
++        },
++        run(ctx) {
++          const models = ctx.getSurfaceModelsByType(ShapeElementModel);
++          if (!models.length) return;
++
++          const selectedIds = new Set(models.map(model => model.id));
++          const crud = ctx.std.get(EdgelessCRUDIdentifier);
++          const connectors = (crud.getElementsByType('connector') ??
++            []) as ConnectorElementModel[];
++
++          for (const model of models) {
++            const nextFlipX = !model.flipX;
++            crud.updateElement(model.id, { flipX: nextFlipX });
++          }
++
++          for (const connector of connectors) {
++            const sourceAttached =
++              connector.source?.id && selectedIds.has(connector.source.id);
++            const targetAttached =
++              connector.target?.id && selectedIds.has(connector.target.id);
++            if (!sourceAttached && !targetAttached) continue;
++
++            crud.updateElement(connector.id, {
++              source: connector.source,
++              target: connector.target,
++              waypoints: connector.waypoints,
++            });
++          }
++        },
++      },
++      {
++        id: 'b.flip-vertical',
++        label: 'Flip Vertical',
++        icon: html`<svg
++          width="20"
++          height="20"
++          viewBox="0 0 20 20"
++          fill="none"
++          stroke="currentColor"
++          stroke-width="1.5"
++          stroke-linecap="round"
++          stroke-linejoin="round"
++        >
++          <path d="M10 4v12" />
++          <path d="M7 6l3-3 3 3" />
++          <path d="M7 14l3 3 3-3" />
++        </svg>`,
++        when(ctx) {
++          return ctx.getSurfaceModelsByType(ShapeElementModel).length > 0;
++        },
++        run(ctx) {
++          const models = ctx.getSurfaceModelsByType(ShapeElementModel);
++          if (!models.length) return;
++
++          const selectedIds = new Set(models.map(model => model.id));
++          const crud = ctx.std.get(EdgelessCRUDIdentifier);
++          const connectors = (crud.getElementsByType('connector') ??
++            []) as ConnectorElementModel[];
++
++          for (const model of models) {
++            const nextFlipY = !model.flipY;
++            crud.updateElement(model.id, { flipY: nextFlipY });
++          }
++
++          for (const connector of connectors) {
++            const sourceAttached =
++              connector.source?.id && selectedIds.has(connector.source.id);
++            const targetAttached =
++              connector.target?.id && selectedIds.has(connector.target.id);
++            if (!sourceAttached && !targetAttached) continue;
++
++            crud.updateElement(connector.id, {
++              source: connector.source,
++              target: connector.target,
++              waypoints: connector.waypoints,
++            });
++          }
++        },
++      },
++    ],
++  },
++
+   // Conversions Group
+   {
+     id: 'd.conversions',
+diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
+index 574dca11da..3767e09d32 100644
+--- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
++++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
+@@ -135,6 +135,8 @@ export function getAnchors(ele: GfxModel) {
+   const offset = 10;
+   const anchors: { point: PointLocation; coord: IVec }[] = [];
+   const rotate = ele.rotate;
++  const flipX = 'flipX' in ele && Boolean((ele as { flipX?: boolean }).flipX);
++  const flipY = 'flipY' in ele && Boolean((ele as { flipY?: boolean }).flipY);
+ 
+   (
+     [
+@@ -155,10 +157,63 @@ export function getAnchors(ele: GfxModel) {
+       );
+       anchors.push({ point: rst[0], coord: bound.toRelative(originPoint) });
+     });
+-  return anchors;
++
++  if (!flipX && !flipY) {
++    return anchors;
++  }
++
++  const flipMatrix = (() => {
++    const cx = bound.x + bound.w / 2;
++    const cy = bound.y + bound.h / 2;
++    return new DOMMatrix()
++      .translateSelf(cx, cy)
++      .scaleSelf(flipX ? -1 : 1, flipY ? -1 : 1)
++      .rotateSelf(rotate)
++      .translateSelf(-cx, -cy);
++  })();
++
++  return anchors.map(anchor => {
++    const absPoint: IVec = [
++      bound.x + anchor.coord[0] * bound.w,
++      bound.y + anchor.coord[1] * bound.h,
++    ];
++    const { x, y } = new DOMPoint(absPoint[0], absPoint[1]).matrixTransform(
++      flipMatrix
++    );
++    return {
++      point: PointLocation.fromVec([x, y]),
++      coord: anchor.coord,
++    };
++  });
+ }
+ 
+ function getConnectableRelativePosition(connectable: GfxModel, position: IVec) {
++  const flipX =
++    'flipX' in connectable &&
++    Boolean((connectable as { flipX?: boolean }).flipX);
++  const flipY =
++    'flipY' in connectable &&
++    Boolean((connectable as { flipY?: boolean }).flipY);
++  const flippedPosition: IVec = [
++    flipX ? 1 - position[0] : position[0],
++    flipY ? 1 - position[1] : position[1],
++  ];
++
++  if (flipX || flipY) {
++    const anchors = getAnchors(connectable);
++    const matched = anchors.find(
++      anchor =>
++        Math.abs(anchor.coord[0] - position[0]) < 1e-6 &&
++        Math.abs(anchor.coord[1] - position[1]) < 1e-6
++    );
++    if (matched) {
++      const location = connectable.getRelativePointLocation(flippedPosition);
++      location[0] = matched.point[0];
++      location[1] = matched.point[1];
++      return location;
++    }
++  }
++
+   const location = connectable.getRelativePointLocation(position);
+   if (isVecZero(Vec.sub(position, [0, 0.5])))
+     location.tangent = Vec.rot([0, -1], toRadian(connectable.rotate));
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
+index ff4eaa713f..b164960841 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
+@@ -130,9 +130,22 @@ function applyBorderStyles(
+ }
+ 
+ function applyTransformStyles(model: ShapeElementModel, element: HTMLElement) {
+-  if (model.rotate && model.rotate !== 0) {
++  const rotate = model.rotate ?? 0;
++  const hasFlip = model.flipX || model.flipY;
++
++  if (rotate !== 0 || hasFlip) {
++    const transforms: string[] = [];
++    if (rotate !== 0) {
++      transforms.push(`rotate(${rotate}deg)`);
++    }
++    if (hasFlip) {
++      transforms.push(
++        `scale(${model.flipX ? -1 : 1}, ${model.flipY ? -1 : 1})`
++      );
++    }
++
+     setStyles(element, {
+-      transform: `rotate(${model.rotate}deg)`,
++      transform: transforms.join(' '),
+       transformOrigin: 'center',
+     });
+   } else {
+@@ -277,6 +290,7 @@ export const shapeDomRenderer = (
+       DefaultTheme.shapeTextColor,
+       true
+     );
++    textElement.style.transform = `scale(${model.flipX ? -1 : 1}, ${model.flipY ? -1 : 1})`;
+     textElement.textContent = str;
+   } else {
+     removeText(retained);
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
+index a5eeba9f58..3cd69ba520 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
+@@ -21,6 +21,8 @@ export function diamond(
+     seed,
+     strokeWidth,
+     filled,
++    flipX,
++    flipY,
+     strokeStyle,
+     roughness,
+     rotate,
+@@ -39,6 +41,7 @@ export function diamond(
+     matrix
+       .translateSelf(renderOffset, renderOffset)
+       .translateSelf(cx, cy)
++      .scaleSelf(flipX ? -1 : 1, flipY ? -1 : 1)
+       .rotateSelf(rotate)
+       .translateSelf(-cx, -cy)
+   );
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
+index 566046f6eb..0dca804e0a 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
+@@ -21,6 +21,8 @@ export function ellipse(
+     seed,
+     strokeWidth,
+     filled,
++    flipX,
++    flipY,
+     strokeStyle,
+     roughness,
+     rotate,
+@@ -39,6 +41,7 @@ export function ellipse(
+     matrix
+       .translateSelf(renderOffset, renderOffset)
+       .translateSelf(cx, cy)
++      .scaleSelf(flipX ? -1 : 1, flipY ? -1 : 1)
+       .rotateSelf(rotate)
+       .translateSelf(-cx, -cy)
+   );
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
+index 306ac550d6..1c893480eb 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
+@@ -24,6 +24,8 @@ export function rect(
+ ) {
+   const {
+     filled,
++    flipX,
++    flipY,
+     radius,
+     rotate,
+     roughness,
+@@ -47,6 +49,7 @@ export function rect(
+     matrix
+       .translateSelf(renderOffset, renderOffset)
+       .translateSelf(cx, cy)
++      .scaleSelf(flipX ? -1 : 1, flipY ? -1 : 1)
+       .rotateSelf(rotate)
+       .translateSelf(-cx, -cy)
+   );
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
+index a31eb0c8f0..081149959c 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
+@@ -21,6 +21,8 @@ export function triangle(
+     seed,
+     strokeWidth,
+     filled,
++    flipX,
++    flipY,
+     strokeStyle,
+     roughness,
+     rotate,
+@@ -39,6 +41,7 @@ export function triangle(
+     matrix
+       .translateSelf(renderOffset, renderOffset)
+       .translateSelf(cx, cy)
++      .scaleSelf(flipX ? -1 : 1, flipY ? -1 : 1)
+       .rotateSelf(rotate)
+       .translateSelf(-cx, -cy)
+   );
+diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
+index 81446124a5..1abb8fd673 100644
+--- a/blocksuite/affine/model/src/elements/shape/shape.ts
++++ b/blocksuite/affine/model/src/elements/shape/shape.ts
+@@ -37,6 +37,8 @@ export type ShapeProps = BaseElementProps & {
+   radius: number;
+   filled: boolean;
+   fillColor: Color;
++  flipX?: boolean;
++  flipY?: boolean;
+   strokeWidth: number;
+   strokeColor: Color;
+   strokeStyle: StrokeStyle;
+@@ -101,6 +103,12 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
+   @field()
+   accessor fillColor: Color = DefaultTheme.shapeFillColor;
+ 
++  @field()
++  accessor flipX: boolean = false;
++
++  @field()
++  accessor flipY: boolean = false;
++
+   @field()
+   accessor filled: boolean = false;
+ 
+@@ -202,6 +210,12 @@ export class LocalShapeElementModel extends GfxLocalElementModel {
+   @prop()
+   accessor fillColor: Color = DefaultTheme.shapeFillColor;
+ 
++  @prop()
++  accessor flipX: boolean = false;
++
++  @prop()
++  accessor flipY: boolean = false;
++
+   @prop()
+   accessor filled: boolean = false;
+ 
+diff --git a/blocksuite/affine/shared/src/types/index.ts b/blocksuite/affine/shared/src/types/index.ts
+index c1f41f86c1..f1314c47c3 100644
+--- a/blocksuite/affine/shared/src/types/index.ts
++++ b/blocksuite/affine/shared/src/types/index.ts
+@@ -71,4 +71,6 @@ export type SelectedRect = {
+   borderWidth: number;
+   borderStyle: string;
+   rotate: number;
++  flipX?: boolean;
++  flipY?: boolean;
+ };
+diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
+index 67d1ce1869..09237e1198 100644
+--- a/blocksuite/affine/shared/src/utils/zod-schema.ts
++++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
+@@ -107,6 +107,8 @@ export const HighlighterSchema = z
+ const DEFAULT_SHAPE = {
+   color: DefaultTheme.shapeTextColor,
+   fillColor: DefaultTheme.shapeFillColor,
++  flipX: false,
++  flipY: false,
+   strokeColor: DefaultTheme.shapeStrokeColor,
+   strokeStyle: StrokeStyle.Solid,
+   strokeWidth: LineWidth.Two,
+@@ -124,6 +126,8 @@ const DEFAULT_SHAPE = {
+ const ShapeObject = {
+   color: ColorSchema,
+   fillColor: ColorSchema,
++  flipX: z.boolean().optional(),
++  flipY: z.boolean().optional(),
+   strokeColor: ColorSchema,
+   strokeStyle: StrokeStyleSchema,
+   strokeWidth: z.number(),
+diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
+index be6eae2e59..d628f580df 100644
+--- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
++++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
+@@ -481,9 +481,15 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<RootBlockModel>
+     const [width, height] = [rect.width * zoom, rect.height * zoom];
+ 
+     let rotate = 0;
++    let flipX = false;
++    let flipY = false;
+     if (elements.length === 1 && elements[0].rotate) {
+       rotate = elements[0].rotate;
+     }
++    if (elements.length === 1) {
++      flipX = 'flipX' in elements[0] && Boolean(elements[0].flipX);
++      flipY = 'flipY' in elements[0] && Boolean(elements[0].flipY);
++    }
+ 
+     this._selectedRect = {
+       width,
+@@ -491,6 +497,8 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<RootBlockModel>
+       left,
+       top,
+       rotate,
++      flipX,
++      flipY,
+       borderStyle: 'solid',
+       borderWidth: 2,
+     };
+@@ -760,6 +768,17 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<RootBlockModel>
+     if (!this._shouldRenderSelection(elements)) return nothing;
+ 
+     const { _selectedRect } = this;
++    const scaleX = _selectedRect.flipX ? -1 : 1;
++    const scaleY = _selectedRect.flipY ? -1 : 1;
++    const centerX = _selectedRect.width / 2;
++    const centerY = _selectedRect.height / 2;
++    const matrix = new DOMMatrix()
++      .translateSelf(_selectedRect.left, _selectedRect.top)
++      .translateSelf(centerX, centerY)
++      .scaleSelf(scaleX, scaleY)
++      .rotateSelf(_selectedRect.rotate)
++      .translateSelf(-centerX, -centerY);
++    const transformValue = `matrix(${matrix.a}, ${matrix.b}, ${matrix.c}, ${matrix.d}, ${matrix.e}, ${matrix.f})`;
+     const hasElementLocked = elements.some(element => element.isLocked());
+     const handlers = this._renderHandles();
+ 
+@@ -802,7 +821,8 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<RootBlockModel>
+           height: `${_selectedRect.height}px`,
+           borderWidth: `${_selectedRect.borderWidth}px`,
+           borderStyle: isConnector ? 'none' : _selectedRect.borderStyle,
+-          transform: `translate(${_selectedRect.left}px, ${_selectedRect.top}px) rotate(${_selectedRect.rotate}deg)`,
++          transform: transformValue,
++          transformOrigin: '0 0',
+         })}
+         disabled="true"
+         data-mode=${this._mode}
+diff --git a/blocksuite/framework/std/src/gfx/interactivity/manager.ts b/blocksuite/framework/std/src/gfx/interactivity/manager.ts
+index 99f7462ed0..0e7bf4af72 100644
+--- a/blocksuite/framework/std/src/gfx/interactivity/manager.ts
++++ b/blocksuite/framework/std/src/gfx/interactivity/manager.ts
+@@ -583,7 +583,6 @@ export class InteractivityManager extends GfxExtension {
+     const elements = Array.from(viewConfigMap.values()).map(
+       config => config.view.model
+     ) as GfxModel[];
+-
+     handler.startRotate({
+       ...options,
+       elements,
+diff --git a/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts b/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts
+index a5b3cb4a26..4bd39066d2 100644
+--- a/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts
++++ b/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts
+@@ -518,7 +518,12 @@ export class ResizeController {
+ 
+     const startAngle = this.getNormalizedAngle(v0.y, v0.x),
+       endAngle = this.getNormalizedAngle(v1.y, v1.x);
+-    const deltaDeg = endAngle - startAngle;
++    const flipped =
++      'flipX' in model &&
++      'flipY' in model &&
++      Boolean((model as { flipX?: boolean }).flipX) !==
++        Boolean((model as { flipY?: boolean }).flipY);
++    const deltaDeg = (endAngle - startAngle) * (flipped ? -1 : 1);
+     const rotatedAngle = orig.rotate + deltaDeg;
+     const targetRotate = this.toNormalizedAngle(
+       snap
+diff --git a/tests/blocksuite/e2e/edgeless/shape.spec.ts b/tests/blocksuite/e2e/edgeless/shape.spec.ts
+index 657e28c87b..1e55d5b409 100644
+--- a/tests/blocksuite/e2e/edgeless/shape.spec.ts
++++ b/tests/blocksuite/e2e/edgeless/shape.spec.ts
+@@ -19,6 +19,7 @@ import {
+   openComponentToolbarMoreMenu,
+   pickColorAtPoints,
+   resizeElementByHandle,
++  rotateElementByHandle,
+   setEdgelessTool,
+   switchEditorMode,
+   triggerComponentToolbarAction,
+@@ -160,6 +161,411 @@ test('delete shape by component-toolbar', async ({ page }) => {
+   await assertEdgelessNonSelectedRect(page);
+ });
+ 
++test('flip shape horizontally and vertically via more menu', async ({
++  page,
++}) => {
++  await enterPlaygroundRoom(page);
++  await initEmptyEdgelessState(page);
++  await switchEditorMode(page);
++
++  const start = { x: 100, y: 100 };
++  const end = { x: 240, y: 220 };
++  await addBasicRectShapeElement(page, start, end);
++
++  await page.mouse.click(120, 120);
++  await openComponentToolbarMoreMenu(page);
++  await page
++    .locator('editor-menu-action')
++    .filter({ hasText: 'Flip Horizontal' })
++    .click();
++
++  const flipX = await page.evaluate(() => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    const [selected] = root.service.selection.selectedElements;
++    const shape = root.service.crud.getElementById(selected?.id);
++    return Boolean(shape?.flipX);
++  });
++  expect(flipX).toBe(true);
++
++  await openComponentToolbarMoreMenu(page);
++  await page
++    .locator('editor-menu-action')
++    .filter({ hasText: 'Flip Vertical' })
++    .click();
++
++  const flipY = await page.evaluate(() => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    const [selected] = root.service.selection.selectedElements;
++    const shape = root.service.crud.getElementById(selected?.id);
++    return Boolean(shape?.flipY);
++  });
++  expect(flipY).toBe(true);
++});
++
++test('rotation direction reverses when flip parity is odd', async ({
++  page,
++}) => {
++  await enterPlaygroundRoom(page);
++  await initEmptyEdgelessState(page);
++  await switchEditorMode(page);
++
++  const shapeId = await page.evaluate(() => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    return root.service.crud.addElement('shape', {
++      shapeType: 'triangle',
++      xywh: JSON.stringify([220, 180, 220, 160]),
++      filled: true,
++      fillColor: '#22aa55',
++      strokeStyle: 'solid',
++      strokeWidth: 2,
++    });
++  });
++
++  await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    root.service.selection.set({ elements: [id], editing: false });
++  }, shapeId);
++
++  const toSignedAngle = (deg: number) => {
++    const normalized = ((deg % 360) + 360) % 360;
++    return normalized > 180 ? normalized - 360 : normalized;
++  };
++
++  await rotateElementByHandle(page, 20, 'top-right', 8);
++  const beforeFlip = await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    return Number(root.service.crud.getElementById(id)?.rotate ?? 0);
++  }, shapeId);
++
++  await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    root.service.crud.updateElement(id, {
++      rotate: 0,
++      flipX: true,
++      flipY: false,
++    });
++    root.service.selection.set({ elements: [id], editing: false });
++  }, shapeId);
++
++  await rotateElementByHandle(page, 20, 'top-right', 8);
++  const afterFlipX = await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    return Number(root.service.crud.getElementById(id)?.rotate ?? 0);
++  }, shapeId);
++
++  expect(Math.sign(toSignedAngle(afterFlipX))).toBe(
++    -Math.sign(toSignedAngle(beforeFlip))
++  );
++  expect(
++    Math.abs(
++      Math.abs(toSignedAngle(afterFlipX)) - Math.abs(toSignedAngle(beforeFlip))
++    )
++  ).toBeLessThanOrEqual(8);
++
++  await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    root.service.crud.updateElement(id, {
++      rotate: 0,
++      flipX: true,
++      flipY: true,
++    });
++    root.service.selection.set({ elements: [id], editing: false });
++  }, shapeId);
++
++  await rotateElementByHandle(page, 20, 'top-right', 8);
++  const afterFlipXY = await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    return Number(root.service.crud.getElementById(id)?.rotate ?? 0);
++  }, shapeId);
++
++  expect(Math.sign(toSignedAngle(afterFlipXY))).toBe(
++    Math.sign(toSignedAngle(beforeFlip))
++  );
++  expect(
++    Math.abs(
++      Math.abs(toSignedAngle(afterFlipXY)) - Math.abs(toSignedAngle(beforeFlip))
++    )
++  ).toBeLessThanOrEqual(8);
++});
++
++test('vertical flip reflects rotated triangle rendering (10deg)', async ({
++  page,
++}) => {
++  await enterPlaygroundRoom(page);
++  await initEmptyEdgelessState(page);
++  await switchEditorMode(page);
++
++  const shapeId = await page.evaluate(() => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    return root.service.crud.addElement('shape', {
++      shapeType: 'triangle',
++      xywh: JSON.stringify([180, 160, 220, 160]),
++      rotate: 10,
++      filled: true,
++      fillColor: '#22aa55',
++      strokeStyle: 'none',
++      strokeWidth: 2,
++    });
++  });
++
++  const samplePair = async () => {
++    const pickAtModelPoints = async (points: number[][]) => {
++      return page.evaluate(modelPoints => {
++        const root = document.querySelector('affine-edgeless-root') as any;
++        const viewport = root.service.viewport;
++        const canvases = Array.from(
++          document.querySelectorAll(
++            '.affine-edgeless-surface-block-container canvas'
++          )
++        ) as HTMLCanvasElement[];
++        const sorted = canvases.sort((a, b) => {
++          const za = Number(getComputedStyle(a).zIndex || 0);
++          const zb = Number(getComputedStyle(b).zIndex || 0);
++          return zb - za;
++        });
++
++        const pick = (mx: number, my: number) => {
++          const [vx, vy] = viewport.toViewCoord(mx, my);
++          for (const canvas of sorted) {
++            const rect = canvas.getBoundingClientRect();
++            const scaleX = canvas.width / rect.width;
++            const scaleY = canvas.height / rect.height;
++            const px = Math.round((vx - rect.left) * scaleX);
++            const py = Math.round((vy - rect.top) * scaleY);
++            if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) {
++              continue;
++            }
++            const data = canvas
++              .getContext('2d', { willReadFrequently: true })
++              ?.getImageData(px, py, 1, 1).data;
++            if (!data) continue;
++            if (data[3] > 0) {
++              return {
++                color:
++                  '#' +
++                  ((1 << 24) + (data[0] << 16) + (data[1] << 8) + data[2])
++                    .toString(16)
++                    .slice(1),
++                alpha: data[3],
++              };
++            }
++          }
++          return { color: '#000000', alpha: 0 };
++        };
++
++        return modelPoints.map(([mx, my]) => pick(mx, my));
++      }, points) as Promise<{ color: string; alpha: number }[]>;
++    };
++
++    const xValues = [0.18, 0.24, 0.3, 0.36];
++    const yValues = [0.2, 0.25, 0.3, 0.35, 0.4];
++
++    for (const xFactor of xValues) {
++      for (const yFactor of yValues) {
++        const topPoint: [number, number] = [
++          Math.round(180 + 220 * xFactor),
++          Math.round(160 + 160 * yFactor),
++        ];
++        const bottomPoint: [number, number] = [
++          Math.round(180 + 220 * xFactor),
++          Math.round(160 + 160 * (1 - yFactor)),
++        ];
++        const samples = await pickAtModelPoints([topPoint, bottomPoint]);
++        if (
++          Math.abs(samples[0].alpha - samples[1].alpha) > 40 ||
++          !close(samples[0].color, samples[1].color)
++        ) {
++          return {
++            topPoint,
++            bottomPoint,
++            topColor: samples[0].color,
++            bottomColor: samples[1].color,
++          };
++        }
++      }
++    }
++
++    return null;
++  };
++
++  const close = (a: string, b: string) => {
++    const parse = (value: string) =>
++      value
++        .replace('#', '')
++        .match(/.{2}/g)
++        ?.map(v => parseInt(v, 16)) ?? [0, 0, 0];
++    const [ar, ag, ab] = parse(a);
++    const [br, bg, bb] = parse(b);
++    return Math.abs(ar - br) + Math.abs(ag - bg) + Math.abs(ab - bb) < 36;
++  };
++
++  const before = await samplePair();
++  expect(before).not.toBeNull();
++  if (!before) return;
++
++  await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    root.service.crud.updateElement(id, { flipY: true });
++  }, shapeId);
++
++  await page.waitForTimeout(100);
++
++  const afterSamples = await page.evaluate(
++    modelPoints => {
++      const root = document.querySelector('affine-edgeless-root') as any;
++      const viewport = root.service.viewport;
++      const canvases = Array.from(
++        document.querySelectorAll(
++          '.affine-edgeless-surface-block-container canvas'
++        )
++      ) as HTMLCanvasElement[];
++      const sorted = canvases.sort((a, b) => {
++        const za = Number(getComputedStyle(a).zIndex || 0);
++        const zb = Number(getComputedStyle(b).zIndex || 0);
++        return zb - za;
++      });
++      const pick = (mx: number, my: number) => {
++        const [vx, vy] = viewport.toViewCoord(mx, my);
++        for (const canvas of sorted) {
++          const rect = canvas.getBoundingClientRect();
++          const scaleX = canvas.width / rect.width;
++          const scaleY = canvas.height / rect.height;
++          const px = Math.round((vx - rect.left) * scaleX);
++          const py = Math.round((vy - rect.top) * scaleY);
++          if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) {
++            continue;
++          }
++          const data = canvas
++            .getContext('2d', { willReadFrequently: true })
++            ?.getImageData(px, py, 1, 1).data;
++          if (!data) continue;
++          if (data[3] > 0) {
++            return (
++              '#' +
++              ((1 << 24) + (data[0] << 16) + (data[1] << 8) + data[2])
++                .toString(16)
++                .slice(1)
++            );
++          }
++        }
++        return '#000000';
++      };
++      return modelPoints.map(([mx, my]) => pick(mx, my));
++    },
++    [before.topPoint, before.bottomPoint]
++  );
++
++  expect(close(before.topColor, afterSamples[1])).toBe(true);
++  expect(close(before.bottomColor, afterSamples[0])).toBe(true);
++});
++
++test('flip horizontal on rotated diamond keeps connector attached and mirrored', async ({
++  page,
++}) => {
++  await enterPlaygroundRoom(page);
++  await initEmptyEdgelessState(page);
++  await switchEditorMode(page);
++
++  const { shapeId, connectorId } = await page.evaluate(() => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    const shapeId = root.service.crud.addElement('shape', {
++      shapeType: 'diamond',
++      xywh: JSON.stringify([220, 180, 180, 140]),
++      rotate: 10,
++      filled: true,
++      fillColor: '#1f6feb',
++      strokeStyle: 'solid',
++      strokeWidth: 2,
++    });
++    const connectorId = root.service.crud.addElement('connector', {
++      source: { id: shapeId, position: [1, 0.5] },
++      target: { position: [520, 250] },
++    });
++    return { shapeId, connectorId };
++  });
++
++  const before = await page.evaluate(
++    ([sid, cid]) => {
++      const root = document.querySelector('affine-edgeless-root') as any;
++      const shape = root.service.crud.getElementById(sid);
++      const connector = root.service.crud.getElementById(cid);
++      const [x, y, w, h] = JSON.parse(shape.xywh);
++      const center = [x + w / 2, y + h / 2];
++      const start = connector.absolutePath?.[0] ?? [0, 0];
++      const rad = (shape.rotate * Math.PI) / 180;
++      const localX = [Math.cos(rad), Math.sin(rad)];
++      const projection =
++        (start[0] - center[0]) * localX[0] + (start[1] - center[1]) * localX[1];
++
++      return {
++        flipX: Boolean(shape?.flipX),
++        projection,
++      };
++    },
++    [shapeId, connectorId]
++  );
++
++  await page.evaluate(id => {
++    const root = document.querySelector('affine-edgeless-root') as any;
++    root.service.selection.set({ elements: [id], editing: false });
++  }, shapeId);
++  await openComponentToolbarMoreMenu(page);
++  await page
++    .locator('editor-menu-action')
++    .filter({ hasText: 'Flip Horizontal' })
++    .click();
++
++  const after = await page.evaluate(
++    ([sid, cid]) => {
++      const root = document.querySelector('affine-edgeless-root') as any;
++      const shape = root.service.crud.getElementById(sid);
++      const connector = root.service.crud.getElementById(cid);
++      const [x, y, w, h] = JSON.parse(shape.xywh);
++      const center = [x + w / 2, y + h / 2];
++      const start = connector.absolutePath?.[0] ?? [0, 0];
++      const rad = (shape.rotate * Math.PI) / 180;
++      const localX = [Math.cos(rad), Math.sin(rad)];
++      const projection =
++        (start[0] - center[0]) * localX[0] + (start[1] - center[1]) * localX[1];
++
++      return {
++        shapeType: shape?.shapeType,
++        flipX: Boolean(shape?.flipX),
++        rotate: Number(shape?.rotate ?? 0),
++        source: connector?.source,
++        projection,
++      };
++    },
++    [shapeId, connectorId]
++  );
++
++  expect(after.shapeType).toBe('diamond');
++  expect(before.flipX).toBe(false);
++  expect(after.flipX).toBe(true);
++  expect(Math.abs(after.rotate - 10)).toBeLessThan(0.01);
++  expect(after.source?.id).toBe(shapeId);
++  expect(after.source?.position).toEqual([1, 0.5]);
++  expect(Math.sign(after.projection)).toBe(-Math.sign(before.projection));
++
++  const selectionMatrix = await page.evaluate(() => {
++    const host = document.querySelector(
++      'edgeless-selected-rect'
++    ) as HTMLElement | null;
++    const rect = host?.shadowRoot?.querySelector(
++      '.affine-edgeless-selected-rect'
++    ) as HTMLElement | null;
++    if (!rect) return null;
++    const matrix = new DOMMatrixReadOnly(getComputedStyle(rect).transform);
++    return {
++      determinant: matrix.a * matrix.d - matrix.b * matrix.c,
++    };
++  });
++  expect(selectionMatrix).not.toBeNull();
++  expect((selectionMatrix as { determinant: number }).determinant).toBeLessThan(
++    0
++  );
++});
++
+ //FIXME: need a way to test hand-drawn-like style
+ test.skip('change shape fill color', async ({ page }) => {
+   await enterPlaygroundRoom(page);
+-- 
+2.53.0
+
