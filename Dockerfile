@@ -70,11 +70,11 @@ RUN git config user.name "${GIT_USER_NAME}" && \
 # - APPLY_PRIVATE_BRANCHES=false => apply local patch packs from TOOLING_REPO
 RUN if [ "${APPLY_PRIVATE_BRANCHES}" != "true" ]; then \
       /tmp/affine-docker-tooling/${TOOLING_SCRIPTS_DIR}/apply-local-patches.sh \
-        /affine \
-        /tmp/affine-docker-tooling/${TOOLING_PATCH_DIR} \
-        "${PATCHES_REQUIRED}" \
-        "${PATCH_INCLUDE}" \
-        "${PATCH_EXCLUDE}"; \
+        --repo-path /affine \
+        --patch-root /tmp/affine-docker-tooling/${TOOLING_PATCH_DIR} \
+        --patches-required "${PATCHES_REQUIRED}" \
+        --include-csv "${PATCH_INCLUDE}" \
+        --exclude-csv "${PATCH_EXCLUDE}"; \
     fi
 
 # Compose private host hooks + extension branches on top of upstream canary

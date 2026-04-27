@@ -103,6 +103,17 @@ Patch selection examples:
 --build-arg PATCH_INCLUDE=0001-feat-connector-curated-runtime-core
 ```
 
+Manual script usage (outside Docker build):
+
+```bash
+scripts/apply-local-patches.sh \
+  --repo-path /tmp/affine \
+  --patch-root /tmp/affine-docker-tooling/patches \
+  --patches-required true \
+  --include-csv 01,05 \
+  --exclude-csv 07-flips
+```
+
 Notes:
 
 - Patches are applied recursively from `${TOOLING_PATCH_DIR}` (default `patches`).

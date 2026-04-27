@@ -1,17 +1,100 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
-  echo "Usage: $0 <repo-path> <patch-root> [patches-required=true|false] [include-csv] [exclude-csv]"
-  echo "Example: $0 /affine /tmp/affine-patches true 01,05-connector-runtime 07-connector-tests"
+usage() {
+  echo "Usage: $0 --repo-path <path> --patch-root <path> [--patches-required true|false] [--include-csv csv] [--exclude-csv csv]"
+  echo ""
+  echo "Examples:"
+  echo "  $0 --repo-path /affine --patch-root /tmp/affine-patches"
+  echo "  $0 --repo-path /affine --patch-root /tmp/affine-patches --patches-required true --include-csv 01,05-connector-runtime --exclude-csv 07-connector-tests"
+  echo ""
+  echo "Legacy positional form is still supported for compatibility:"
+  echo "  $0 <repo-path> <patch-root> [patches-required=true|false] [include-csv] [exclude-csv]"
+}
+
+REPO_PATH=""
+PATCH_ROOT=""
+PATCHES_REQUIRED="true"
+PATCH_INCLUDE=""
+PATCH_EXCLUDE=""
+
+if [ "$#" -eq 0 ]; then
+  usage
   exit 1
 fi
 
-REPO_PATH="$1"
-PATCH_ROOT="$2"
-PATCHES_REQUIRED="${3:-true}"
-PATCH_INCLUDE="${4:-}"
-PATCH_EXCLUDE="${5:-}"
+if [[ "$1" == -* ]]; then
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --repo-path)
+        REPO_PATH="${2:-}"
+        shift 2
+        ;;
+      --repo-path=*)
+        REPO_PATH="${1#*=}"
+        shift
+        ;;
+      --patch-root)
+        PATCH_ROOT="${2:-}"
+        shift 2
+        ;;
+      --patch-root=*)
+        PATCH_ROOT="${1#*=}"
+        shift
+        ;;
+      --patches-required)
+        PATCHES_REQUIRED="${2:-}"
+        shift 2
+        ;;
+      --patches-required=*)
+        PATCHES_REQUIRED="${1#*=}"
+        shift
+        ;;
+      --include-csv)
+        PATCH_INCLUDE="${2:-}"
+        shift 2
+        ;;
+      --include-csv=*)
+        PATCH_INCLUDE="${1#*=}"
+        shift
+        ;;
+      --exclude-csv)
+        PATCH_EXCLUDE="${2:-}"
+        shift 2
+        ;;
+      --exclude-csv=*)
+        PATCH_EXCLUDE="${1#*=}"
+        shift
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        echo "Error: unknown argument '$1'"
+        usage
+        exit 1
+        ;;
+    esac
+  done
+else
+  if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
+    usage
+    exit 1
+  fi
+
+  REPO_PATH="$1"
+  PATCH_ROOT="$2"
+  PATCHES_REQUIRED="${3:-true}"
+  PATCH_INCLUDE="${4:-}"
+  PATCH_EXCLUDE="${5:-}"
+fi
+
+if [ -z "$REPO_PATH" ] || [ -z "$PATCH_ROOT" ]; then
+  echo "Error: --repo-path and --patch-root are required"
+  usage
+  exit 1
+fi
 
 if [ ! -d "$REPO_PATH/.git" ]; then
   echo "Error: $REPO_PATH is not a git repository"
