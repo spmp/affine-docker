@@ -1,7 +1,7 @@
 From e2e972fd9ff64ee8a12b76710da204d47b2dd160 Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Sat, 4 Apr 2026 18:55:56 -0600
-Subject: [PATCH] Hover conenctor initialise intermediate step
+Subject: [PATCH] Apply patch: 06-connector-hover-initiation/0001-Hover-connector-initialise-intermediate-step.patch
 
 ---
  blocksuite/affine/all/package.json            |   1 +

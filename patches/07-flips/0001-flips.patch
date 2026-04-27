@@ -1,16 +1,17 @@
 diff --git a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
-index d4a3651d1f..1cffea185a 100644
+index 17c3bda08..732e11a68 100644
 --- a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
 +++ b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/more.ts
-@@ -15,6 +15,7 @@ import { createGroupFromSelectedCommand } from '@blocksuite/affine-gfx-group';
+@@ -19,7 +19,7 @@ import { createGroupFromSelectedCommand } from '@blocksuite/affine-gfx-group';
  import {
    AttachmentBlockModel,
    BookmarkBlockModel,
+-  ConnectorElementModel,
 +  type ConnectorElementModel,
    EmbedLinkedDocBlockSchema,
    EmbedLinkedDocModel,
    EmbedSyncedDocBlockSchema,
-@@ -25,6 +26,7 @@ import {
+@@ -30,6 +30,7 @@ import {
    MindmapElementModel,
    NoteBlockModel,
    ParagraphBlockModel,
@@ -18,7 +19,7 @@ index d4a3651d1f..1cffea185a 100644
  } from '@blocksuite/affine-model';
  import type {
    ToolbarActions,
-@@ -50,6 +52,7 @@ import {
+@@ -62,6 +63,7 @@ import {
  } from '@blocksuite/icons/lit';
  import type { BlockComponent } from '@blocksuite/std';
  import { GfxBlockElementModel, type GfxModel } from '@blocksuite/std/gfx';
@@ -26,7 +27,7 @@ index d4a3651d1f..1cffea185a 100644
  
  import { EdgelessClipboardController } from '../../clipboard/clipboard';
  import { duplicate } from '../../utils/clipboard-utils';
-@@ -207,6 +210,110 @@ export const moreActions = [
+@@ -219,6 +221,110 @@ export const moreActions = [
      ],
    },
  
@@ -138,7 +139,7 @@ index d4a3651d1f..1cffea185a 100644
    {
      id: 'd.conversions',
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 574dca11da..8ca6da0d90 100644
+index 948093db1..243a86caf 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -135,6 +135,8 @@ export function getAnchors(ele: GfxModel) {
@@ -150,12 +151,11 @@ index 574dca11da..8ca6da0d90 100644
  
    (
      [
-@@ -155,10 +157,66 @@ export function getAnchors(ele: GfxModel) {
-       );
+@@ -156,10 +158,65 @@ export function getAnchors(ele: GfxModel) {
        anchors.push({ point: rst[0], coord: bound.toRelative(originPoint) });
      });
+ 
 -  return anchors;
-+
 +  if (!flipX && !flipY) {
 +    return anchors;
 +  }
@@ -219,7 +219,7 @@ index 574dca11da..8ca6da0d90 100644
    const location = connectable.getRelativePointLocation(position);
    if (isVecZero(Vec.sub(position, [0, 0.5])))
      location.tangent = Vec.rot([0, -1], toRadian(connectable.rotate));
-@@ -1296,6 +1354,12 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1436,6 +1493,12 @@ export class ConnectorPathGenerator extends PathGenerator {
      connector: ConnectorElementModel | LocalConnectorElementModel
    ) {
      const { source, target } = connector;
@@ -232,7 +232,7 @@ index 574dca11da..8ca6da0d90 100644
      let startPoint: PointLocation | null = null;
      let endPoint: PointLocation | null = null;
  
-@@ -1321,7 +1385,18 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1461,7 +1524,18 @@ export class ConnectorPathGenerator extends PathGenerator {
        if (!startPoint || !endPoint) return [];
  
        if (source.id) {
@@ -252,7 +252,7 @@ index 574dca11da..8ca6da0d90 100644
          startPoint.out = isVecZero(startTangentVertical)
            ? Vec.mul(Vec.per(Vec.normalize(Vec.sub(startPoint, endPoint))), 20)
            : Vec.mul(
-@@ -1335,7 +1410,18 @@ export class ConnectorPathGenerator extends PathGenerator {
+@@ -1475,7 +1549,18 @@ export class ConnectorPathGenerator extends PathGenerator {
              );
        }
        if (target.id) {
@@ -273,10 +273,10 @@ index 574dca11da..8ca6da0d90 100644
            ? Vec.mul(Vec.per(Vec.normalize(Vec.sub(endPoint, startPoint))), 20)
            : Vec.mul(
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
-index ff4eaa713f..b164960841 100644
+index a456be31e..b819dfaff 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
-@@ -130,9 +130,22 @@ function applyBorderStyles(
+@@ -197,9 +197,22 @@ function applyBorderStyles(
  }
  
  function applyTransformStyles(model: ShapeElementModel, element: HTMLElement) {
@@ -301,7 +301,7 @@ index ff4eaa713f..b164960841 100644
        transformOrigin: 'center',
      });
    } else {
-@@ -277,6 +290,7 @@ export const shapeDomRenderer = (
+@@ -382,6 +395,7 @@ export const shapeDomRenderer = (
        DefaultTheme.shapeTextColor,
        true
      );
@@ -310,7 +310,7 @@ index ff4eaa713f..b164960841 100644
    } else {
      removeText(retained);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
-index a5eeba9f58..3cd69ba520 100644
+index e8564670d..b6d0b9f2d 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/diamond.ts
 @@ -21,6 +21,8 @@ export function diamond(
@@ -331,7 +331,7 @@ index a5eeba9f58..3cd69ba520 100644
        .translateSelf(-cx, -cy)
    );
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
-index 566046f6eb..0dca804e0a 100644
+index 1e738a958..daf8e01e3 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/ellipse.ts
 @@ -21,6 +21,8 @@ export function ellipse(
@@ -352,7 +352,7 @@ index 566046f6eb..0dca804e0a 100644
        .translateSelf(-cx, -cy)
    );
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
-index 306ac550d6..1c893480eb 100644
+index 72e0d0efc..cfea0514d 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/rect.ts
 @@ -24,6 +24,8 @@ export function rect(
@@ -373,7 +373,7 @@ index 306ac550d6..1c893480eb 100644
        .translateSelf(-cx, -cy)
    );
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
-index a31eb0c8f0..081149959c 100644
+index f52f6ea64..1daecf546 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle.ts
 @@ -21,6 +21,8 @@ export function triangle(
@@ -394,32 +394,30 @@ index a31eb0c8f0..081149959c 100644
        .translateSelf(-cx, -cy)
    );
 diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
-index 81446124a5..1abb8fd673 100644
+index 0ec88aefe..52ab663f4 100644
 --- a/blocksuite/affine/model/src/elements/shape/shape.ts
 +++ b/blocksuite/affine/model/src/elements/shape/shape.ts
-@@ -37,6 +37,8 @@ export type ShapeProps = BaseElementProps & {
-   radius: number;
-   filled: boolean;
+@@ -39,6 +39,8 @@ export type ShapeProps = BaseElementProps & {
    fillColor: Color;
+   gradientFinal?: Color;
+   gradientDirection?: 'S' | 'W' | 'N' | 'E' | 'SE' | 'SW' | 'NE' | 'NW';
 +  flipX?: boolean;
 +  flipY?: boolean;
    strokeWidth: number;
    strokeColor: Color;
    strokeStyle: StrokeStyle;
-@@ -101,6 +103,12 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
-   @field()
-   accessor fillColor: Color = DefaultTheme.shapeFillColor;
- 
-+  @field()
+@@ -117,6 +119,10 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
+     | 'NE'
+     | 'NW'
+     | undefined = undefined;
 +  accessor flipX: boolean = false;
 +
 +  @field()
 +  accessor flipY: boolean = false;
-+
+ 
    @field()
    accessor filled: boolean = false;
- 
-@@ -202,6 +210,12 @@ export class LocalShapeElementModel extends GfxLocalElementModel {
+@@ -219,6 +225,12 @@ export class LocalShapeElementModel extends GfxLocalElementModel {
    @prop()
    accessor fillColor: Color = DefaultTheme.shapeFillColor;
  
@@ -433,7 +431,7 @@ index 81446124a5..1abb8fd673 100644
    accessor filled: boolean = false;
  
 diff --git a/blocksuite/affine/shared/src/types/index.ts b/blocksuite/affine/shared/src/types/index.ts
-index c1f41f86c1..f1314c47c3 100644
+index c1f41f86c..f1314c47c 100644
 --- a/blocksuite/affine/shared/src/types/index.ts
 +++ b/blocksuite/affine/shared/src/types/index.ts
 @@ -71,4 +71,6 @@ export type SelectedRect = {
@@ -444,29 +442,29 @@ index c1f41f86c1..f1314c47c3 100644
 +  flipY?: boolean;
  };
 diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
-index 67d1ce1869..09237e1198 100644
+index 7eb10f474..db2b49247 100644
 --- a/blocksuite/affine/shared/src/utils/zod-schema.ts
 +++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
-@@ -107,6 +107,8 @@ export const HighlighterSchema = z
- const DEFAULT_SHAPE = {
-   color: DefaultTheme.shapeTextColor,
+@@ -118,6 +118,8 @@ const DEFAULT_SHAPE = {
    fillColor: DefaultTheme.shapeFillColor,
+   gradientFinal: undefined,
+   gradientDirection: undefined,
 +  flipX: false,
 +  flipY: false,
    strokeColor: DefaultTheme.shapeStrokeColor,
    strokeStyle: StrokeStyle.Solid,
    strokeWidth: LineWidth.Two,
-@@ -124,6 +126,8 @@ const DEFAULT_SHAPE = {
- const ShapeObject = {
-   color: ColorSchema,
-   fillColor: ColorSchema,
+@@ -139,6 +141,8 @@ const ShapeObject = {
+   gradientDirection: z
+     .enum(['S', 'W', 'N', 'E', 'SE', 'SW', 'NE', 'NW'])
+     .optional(),
 +  flipX: z.boolean().optional(),
 +  flipY: z.boolean().optional(),
    strokeColor: ColorSchema,
    strokeStyle: StrokeStyleSchema,
    strokeWidth: z.number(),
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
-index 81210d817c..ba8febe2f2 100644
+index 81210d817..ba8febe2f 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 @@ -11,6 +11,7 @@ import {
@@ -580,7 +578,7 @@ index 81210d817c..ba8febe2f2 100644
        );
  
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
-index be6eae2e59..d628f580df 100644
+index be6eae2e5..d628f580d 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-selected-rect.ts
 @@ -481,9 +481,15 @@ export class EdgelessSelectedRectWidget extends WidgetComponent<RootBlockModel>
@@ -637,7 +635,7 @@ index be6eae2e59..d628f580df 100644
          disabled="true"
          data-mode=${this._mode}
 diff --git a/blocksuite/framework/std/src/gfx/interactivity/manager.ts b/blocksuite/framework/std/src/gfx/interactivity/manager.ts
-index 99f7462ed0..0e7bf4af72 100644
+index 99f7462ed..0e7bf4af7 100644
 --- a/blocksuite/framework/std/src/gfx/interactivity/manager.ts
 +++ b/blocksuite/framework/std/src/gfx/interactivity/manager.ts
 @@ -583,7 +583,6 @@ export class InteractivityManager extends GfxExtension {
@@ -649,7 +647,7 @@ index 99f7462ed0..0e7bf4af72 100644
        ...options,
        elements,
 diff --git a/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts b/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts
-index a5b3cb4a26..4bd39066d2 100644
+index a5b3cb4a2..4bd39066d 100644
 --- a/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts
 +++ b/blocksuite/framework/std/src/gfx/interactivity/resize/manager.ts
 @@ -518,7 +518,12 @@ export class ResizeController {
@@ -667,7 +665,7 @@ index a5b3cb4a26..4bd39066d2 100644
      const targetRotate = this.toNormalizedAngle(
        snap
 diff --git a/tests/blocksuite/e2e/edgeless/shape.spec.ts b/tests/blocksuite/e2e/edgeless/shape.spec.ts
-index 657e28c87b..1e55d5b409 100644
+index 657e28c87..1e55d5b40 100644
 --- a/tests/blocksuite/e2e/edgeless/shape.spec.ts
 +++ b/tests/blocksuite/e2e/edgeless/shape.spec.ts
 @@ -19,6 +19,7 @@ import {

@@ -1,7 +1,7 @@
 From 20e7eb8d96cd720443a7dd3d3607bba04cf9ed8c Mon Sep 17 00:00:00 2001
 From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
 Date: Sat, 4 Apr 2026 19:44:24 -0600
-Subject: [PATCH] Ensure click on the hovered edge initiates a connector
+Subject: [PATCH] Apply patch: 06-connector-hover-initiation/0002-Ensure-click-on-the-hovered-edge-initiates-a-connect.patch
 
 ---
  .../gfx/connector/src/connector-tool.ts       | 44 +++++++++++++++++++
