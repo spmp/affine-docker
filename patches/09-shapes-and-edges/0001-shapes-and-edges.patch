@@ -1,5 +1,5 @@
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
-index 243a86caf3..f4c2b6a8ad 100644
+index 243a86caf..f4c2b6a8a 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 @@ -1,4 +1,8 @@
@@ -701,7 +701,7 @@ index 243a86caf3..f4c2b6a8ad 100644
            ? Vec.mul(Vec.per(Vec.normalize(Vec.sub(endPoint, startPoint))), 20)
            : Vec.mul(
 diff --git a/blocksuite/affine/gfx/connector/src/connector-tool.ts b/blocksuite/affine/gfx/connector/src/connector-tool.ts
-index 8cb5c5a42f..1b520b42db 100644
+index 8cb5c5a42..1b520b42d 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-tool.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-tool.ts
 @@ -21,7 +21,27 @@ import {
@@ -804,7 +804,7 @@ index 8cb5c5a42f..1b520b42db 100644
      this._source = {
        id: element.id,
 diff --git a/blocksuite/affine/gfx/connector/tsconfig.json b/blocksuite/affine/gfx/connector/tsconfig.json
-index cfca82fae5..1d97c27803 100644
+index cfca82fae..1d97c2780 100644
 --- a/blocksuite/affine/gfx/connector/tsconfig.json
 +++ b/blocksuite/affine/gfx/connector/tsconfig.json
 @@ -10,6 +10,7 @@
@@ -816,7 +816,7 @@ index cfca82fae5..1d97c27803 100644
      { "path": "../../model" },
      { "path": "../../rich-text" },
 diff --git a/blocksuite/affine/gfx/shape/package.json b/blocksuite/affine/gfx/shape/package.json
-index 730761bdb9..c388d01fcf 100644
+index 730761bdb..c388d01fc 100644
 --- a/blocksuite/affine/gfx/shape/package.json
 +++ b/blocksuite/affine/gfx/shape/package.json
 @@ -22,6 +22,7 @@
@@ -829,7 +829,7 @@ index 730761bdb9..c388d01fcf 100644
      "@types/lodash-es": "^4.17.12",
 diff --git a/blocksuite/affine/gfx/shape/src/__tests__/shape-browser-library.unit.spec.ts b/blocksuite/affine/gfx/shape/src/__tests__/shape-browser-library.unit.spec.ts
 new file mode 100644
-index 0000000000..cf02f59e58
+index 000000000..cf02f59e5
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/__tests__/shape-browser-library.unit.spec.ts
 @@ -0,0 +1,17 @@
@@ -852,7 +852,7 @@ index 0000000000..cf02f59e58
 +});
 diff --git a/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts b/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
 new file mode 100644
-index 0000000000..27b7e924b4
+index 000000000..27b7e924b
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
 @@ -0,0 +1,731 @@
@@ -1588,7 +1588,7 @@ index 0000000000..27b7e924b4
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
-index 9096f6a67f..1cd55b7642 100644
+index 9096f6a67..1cd55b764 100644
 --- a/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
 +++ b/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
 @@ -1,11 +1,7 @@
@@ -2026,7 +2026,7 @@ index 9096f6a67f..1cd55b7642 100644
 +  accessor browserOpen = false;
  }
 diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
-index 596316cd18..31d0aff535 100644
+index 596316cd1..31d0aff53 100644
 --- a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
 +++ b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
 @@ -1,8 +1,20 @@
@@ -2253,7 +2253,7 @@ index 596316cd18..31d0aff535 100644
  
 diff --git a/blocksuite/affine/gfx/shape/src/drawio/index.ts b/blocksuite/affine/gfx/shape/src/drawio/index.ts
 new file mode 100644
-index 0000000000..0de7f1749a
+index 000000000..0de7f1749
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/drawio/index.ts
 @@ -0,0 +1,2 @@
@@ -2261,7 +2261,7 @@ index 0000000000..0de7f1749a
 +export { getStencilShapeData } from './stencil-utils';
 diff --git a/blocksuite/affine/gfx/shape/src/drawio/stencil-map.ts b/blocksuite/affine/gfx/shape/src/drawio/stencil-map.ts
 new file mode 100644
-index 0000000000..c1a1cffa53
+index 000000000..c1a1cffa5
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/drawio/stencil-map.ts
 @@ -0,0 +1,56 @@
@@ -2323,7 +2323,7 @@ index 0000000000..c1a1cffa53
 +};
 diff --git a/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts b/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts
 new file mode 100644
-index 0000000000..418bf1ba9e
+index 000000000..418bf1ba9
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts
 @@ -0,0 +1,82 @@
@@ -2411,7 +2411,7 @@ index 0000000000..418bf1ba9e
 +};
 diff --git a/blocksuite/affine/gfx/shape/src/drawio/stencils.ts b/blocksuite/affine/gfx/shape/src/drawio/stencils.ts
 new file mode 100644
-index 0000000000..d79b612973
+index 000000000..d79b61297
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/drawio/stencils.ts
 @@ -0,0 +1,6432 @@
@@ -8848,7 +8848,7 @@ index 0000000000..d79b612973
 +  },
 +} as const;
 diff --git a/blocksuite/affine/gfx/shape/src/effects.ts b/blocksuite/affine/gfx/shape/src/effects.ts
-index d38282b8a0..b0ca34fb01 100644
+index d38282b8a..b0ca34fb0 100644
 --- a/blocksuite/affine/gfx/shape/src/effects.ts
 +++ b/blocksuite/affine/gfx/shape/src/effects.ts
 @@ -1,3 +1,4 @@
@@ -8875,7 +8875,7 @@ index d38282b8a0..b0ca34fb01 100644
    }
  }
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
-index b819dfaffa..08929bd12b 100644
+index b819dfaff..08929bd12 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 @@ -2,69 +2,80 @@ import type { DomRenderer } from '@blocksuite/affine-block-surface';
@@ -9476,7 +9476,7 @@ index b819dfaffa..08929bd12b 100644
    manageClassNames(model, element);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/actor.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/actor.ts
 new file mode 100644
-index 0000000000..02256bd4fb
+index 000000000..02256bd4f
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/actor.ts
 @@ -0,0 +1,4 @@
@@ -9486,7 +9486,7 @@ index 0000000000..02256bd4fb
 +export const actor = createPathShapeRenderer(buildActorPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/callout.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/callout.ts
 new file mode 100644
-index 0000000000..d5b7c182dd
+index 000000000..d5b7c182d
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/callout.ts
 @@ -0,0 +1,4 @@
@@ -9496,7 +9496,7 @@ index 0000000000..d5b7c182dd
 +export const callout = createPathShapeRenderer(buildCalloutPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/cloud.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/cloud.ts
 new file mode 100644
-index 0000000000..f328e1f162
+index 000000000..f328e1f16
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/cloud.ts
 @@ -0,0 +1,4 @@
@@ -9506,7 +9506,7 @@ index 0000000000..f328e1f162
 +export const cloud = createPathShapeRenderer(buildCloudPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/cube.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/cube.ts
 new file mode 100644
-index 0000000000..91fee222e5
+index 000000000..91fee222e
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/cube.ts
 @@ -0,0 +1,8 @@
@@ -9520,7 +9520,7 @@ index 0000000000..91fee222e5
 +);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/cylinder.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/cylinder.ts
 new file mode 100644
-index 0000000000..4a6235bfad
+index 000000000..4a6235bfa
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/cylinder.ts
 @@ -0,0 +1,4 @@
@@ -9530,7 +9530,7 @@ index 0000000000..4a6235bfad
 +export const cylinder = createPathShapeRenderer(buildCylinderPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/data-storage.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/data-storage.ts
 new file mode 100644
-index 0000000000..e91d5ec040
+index 000000000..e91d5ec04
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/data-storage.ts
 @@ -0,0 +1,4 @@
@@ -9540,7 +9540,7 @@ index 0000000000..e91d5ec040
 +export const dataStorage = createPathShapeRenderer(buildDataStoragePath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/document.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/document.ts
 new file mode 100644
-index 0000000000..b14b723ff2
+index 000000000..b14b723ff
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/document.ts
 @@ -0,0 +1,4 @@
@@ -9550,7 +9550,7 @@ index 0000000000..b14b723ff2
 +export const document = createPathShapeRenderer(buildDocumentPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/hexagon.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/hexagon.ts
 new file mode 100644
-index 0000000000..b22559bcc2
+index 000000000..b22559bcc
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/hexagon.ts
 @@ -0,0 +1,75 @@
@@ -9630,7 +9630,7 @@ index 0000000000..b22559bcc2
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
-index 5bc892828a..c9bcc26ff5 100644
+index 5bc892828..c9bcc26ff 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
 @@ -15,17 +15,29 @@ import {
@@ -9789,7 +9789,7 @@ index 5bc892828a..c9bcc26ff5 100644
  }
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/internal-storage.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/internal-storage.ts
 new file mode 100644
-index 0000000000..56f863995a
+index 000000000..56f863995
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/internal-storage.ts
 @@ -0,0 +1,6 @@
@@ -9801,7 +9801,7 @@ index 0000000000..56f863995a
 +);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/logic-and.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/logic-and.ts
 new file mode 100644
-index 0000000000..e1d2406282
+index 000000000..e1d240628
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/logic-and.ts
 @@ -0,0 +1,4 @@
@@ -9811,7 +9811,7 @@ index 0000000000..e1d2406282
 +export const logicAnd = createPathShapeRenderer(buildLogicAndPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/logic-or.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/logic-or.ts
 new file mode 100644
-index 0000000000..e52916a81c
+index 000000000..e52916a81
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/logic-or.ts
 @@ -0,0 +1,4 @@
@@ -9821,7 +9821,7 @@ index 0000000000..e52916a81c
 +export const logicOr = createPathShapeRenderer(buildLogicOrPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/note.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/note.ts
 new file mode 100644
-index 0000000000..e8d9bae7ed
+index 000000000..e8d9bae7e
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/note.ts
 @@ -0,0 +1,8 @@
@@ -9835,7 +9835,7 @@ index 0000000000..e8d9bae7ed
 +);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/parallelogram.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/parallelogram.ts
 new file mode 100644
-index 0000000000..5e674f7984
+index 000000000..5e674f798
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/parallelogram.ts
 @@ -0,0 +1,74 @@
@@ -9915,7 +9915,7 @@ index 0000000000..5e674f7984
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/path-shape.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/path-shape.ts
 new file mode 100644
-index 0000000000..b6042a0d7a
+index 000000000..b6042a0d7
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/path-shape.ts
 @@ -0,0 +1,151 @@
@@ -10072,7 +10072,7 @@ index 0000000000..b6042a0d7a
 +};
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/paths.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/paths.ts
 new file mode 100644
-index 0000000000..391a834ebd
+index 000000000..391a834eb
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/paths.ts
 @@ -0,0 +1,168 @@
@@ -10246,7 +10246,7 @@ index 0000000000..391a834ebd
 +};
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts
 new file mode 100644
-index 0000000000..f1cece39aa
+index 000000000..f1cece39a
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts
 @@ -0,0 +1,118 @@
@@ -10370,7 +10370,7 @@ index 0000000000..f1cece39aa
 +};
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/step.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/step.ts
 new file mode 100644
-index 0000000000..4b532faef5
+index 000000000..4b532faef
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/step.ts
 @@ -0,0 +1,4 @@
@@ -10380,7 +10380,7 @@ index 0000000000..4b532faef5
 +export const step = createPathShapeRenderer(buildStepPath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/tape.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/tape.ts
 new file mode 100644
-index 0000000000..0b6660fe83
+index 000000000..0b6660fe8
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/tape.ts
 @@ -0,0 +1,4 @@
@@ -10390,7 +10390,7 @@ index 0000000000..0b6660fe83
 +export const tape = createPathShapeRenderer(buildTapePath);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/trapezoid.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/trapezoid.ts
 new file mode 100644
-index 0000000000..167589ffba
+index 000000000..167589ffb
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/trapezoid.ts
 @@ -0,0 +1,74 @@
@@ -10470,7 +10470,7 @@ index 0000000000..167589ffba
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle-right.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle-right.ts
 new file mode 100644
-index 0000000000..ffd309adb2
+index 000000000..ffd309adb
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/triangle-right.ts
 @@ -0,0 +1,73 @@
@@ -10548,7 +10548,7 @@ index 0000000000..ffd309adb2
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
-index f2bf104b34..5987f97f6e 100644
+index f2bf104b3..5987f97f6 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
 @@ -15,10 +15,13 @@ import type {
@@ -11017,7 +11017,7 @@ index f2bf104b34..5987f97f6e 100644
    width: number,
    textAlign: TextAlign,
 diff --git a/blocksuite/affine/gfx/shape/src/index.ts b/blocksuite/affine/gfx/shape/src/index.ts
-index b1ed1db880..725f88611e 100644
+index b1ed1db88..725f88611 100644
 --- a/blocksuite/affine/gfx/shape/src/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/index.ts
 @@ -1,6 +1,7 @@
@@ -11029,7 +11029,7 @@ index b1ed1db880..725f88611e 100644
  export * from './element-view';
  export * from './overlay';
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/factory.ts b/blocksuite/affine/gfx/shape/src/overlay/factory.ts
-index 73ccccfdf9..c50b2f7abe 100644
+index 73ccccfdf..c50b2f7ab 100644
 --- a/blocksuite/affine/gfx/shape/src/overlay/factory.ts
 +++ b/blocksuite/affine/gfx/shape/src/overlay/factory.ts
 @@ -1,13 +1,36 @@
@@ -11160,7 +11160,7 @@ index 73ccccfdf9..c50b2f7abe 100644
        default:
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/hexagon.ts b/blocksuite/affine/gfx/shape/src/overlay/hexagon.ts
 new file mode 100644
-index 0000000000..3a77396f3b
+index 000000000..3a77396f3
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/hexagon.ts
 @@ -0,0 +1,25 @@
@@ -11191,7 +11191,7 @@ index 0000000000..3a77396f3b
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/parallelogram.ts b/blocksuite/affine/gfx/shape/src/overlay/parallelogram.ts
 new file mode 100644
-index 0000000000..aa3915bf50
+index 000000000..aa3915bf5
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/parallelogram.ts
 @@ -0,0 +1,24 @@
@@ -11221,7 +11221,7 @@ index 0000000000..aa3915bf50
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/path-shape.ts b/blocksuite/affine/gfx/shape/src/overlay/path-shape.ts
 new file mode 100644
-index 0000000000..eefa0318b4
+index 000000000..eefa0318b
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/path-shape.ts
 @@ -0,0 +1,32 @@
@@ -11258,7 +11258,7 @@ index 0000000000..eefa0318b4
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts b/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts
-index 506e26f613..76f6037d6d 100644
+index 506e26f61..76f6037d6 100644
 --- a/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts
 +++ b/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts
 @@ -76,7 +76,7 @@ export class ShapeOverlay extends ToolOverlay {
@@ -11283,7 +11283,7 @@ index 506e26f613..76f6037d6d 100644
      this.shape.draw(ctx, rc);
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts b/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts
 new file mode 100644
-index 0000000000..f2795fb8d1
+index 000000000..f2795fb8d
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts
 @@ -0,0 +1,91 @@
@@ -11380,7 +11380,7 @@ index 0000000000..f2795fb8d1
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/step.ts b/blocksuite/affine/gfx/shape/src/overlay/step.ts
 new file mode 100644
-index 0000000000..55cb1184f0
+index 000000000..55cb1184f
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/step.ts
 @@ -0,0 +1,27 @@
@@ -11413,7 +11413,7 @@ index 0000000000..55cb1184f0
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/trapezoid.ts b/blocksuite/affine/gfx/shape/src/overlay/trapezoid.ts
 new file mode 100644
-index 0000000000..755cd75090
+index 000000000..755cd7509
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/trapezoid.ts
 @@ -0,0 +1,24 @@
@@ -11443,7 +11443,7 @@ index 0000000000..755cd75090
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/triangle-right.ts b/blocksuite/affine/gfx/shape/src/overlay/triangle-right.ts
 new file mode 100644
-index 0000000000..81749a67d7
+index 000000000..81749a67d
 --- /dev/null
 +++ b/blocksuite/affine/gfx/shape/src/overlay/triangle-right.ts
 @@ -0,0 +1,22 @@
@@ -11470,7 +11470,7 @@ index 0000000000..81749a67d7
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/utils.ts b/blocksuite/affine/gfx/shape/src/overlay/utils.ts
-index 1e60faaf17..33e5999190 100644
+index 1e60faaf1..33e599919 100644
 --- a/blocksuite/affine/gfx/shape/src/overlay/utils.ts
 +++ b/blocksuite/affine/gfx/shape/src/overlay/utils.ts
 @@ -29,6 +29,57 @@ export const drawGeneralShape = (
@@ -11532,7 +11532,7 @@ index 1e60faaf17..33e5999190 100644
        drawRoundedRect(ctx, xywh);
        break;
 diff --git a/blocksuite/affine/gfx/shape/src/shape-tool.ts b/blocksuite/affine/gfx/shape/src/shape-tool.ts
-index d02dd857da..d235587ec4 100644
+index d02dd857d..d235587ec 100644
 --- a/blocksuite/affine/gfx/shape/src/shape-tool.ts
 +++ b/blocksuite/affine/gfx/shape/src/shape-tool.ts
 @@ -65,10 +65,9 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
@@ -11585,7 +11585,7 @@ index d02dd857da..d235587ec4 100644
      if (this._disableOverlay) return;
      if (this._draggingElement) {
 diff --git a/blocksuite/affine/gfx/shape/src/toolbar/icons.ts b/blocksuite/affine/gfx/shape/src/toolbar/icons.ts
-index 348cdd327c..76ce665136 100644
+index 348cdd327..76ce66513 100644
 --- a/blocksuite/affine/gfx/shape/src/toolbar/icons.ts
 +++ b/blocksuite/affine/gfx/shape/src/toolbar/icons.ts
 @@ -1,5 +1,199 @@
@@ -12677,7 +12677,7 @@ index 348cdd327c..76ce665136 100644
 +  />
 +</svg>`;
 diff --git a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
-index ed95c6200f..68f42d37ec 100644
+index ed95c6200..68f42d37e 100644
 --- a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
 +++ b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
 @@ -4,17 +4,76 @@ import {
@@ -13228,22 +13228,8 @@ index ed95c6200f..68f42d37ec 100644
  export const ShapeComponentConfigMap = ShapeComponentConfig.reduce(
    (acc, config) => {
      acc[config.name] = config;
-diff --git a/blocksuite/affine/gfx/template/src/toolbar/overlay-scrollbar.ts b/blocksuite/affine/gfx/template/src/toolbar/overlay-scrollbar.ts
-index baff1249f2..4403eeb197 100644
---- a/blocksuite/affine/gfx/template/src/toolbar/overlay-scrollbar.ts
-+++ b/blocksuite/affine/gfx/template/src/toolbar/overlay-scrollbar.ts
-@@ -103,6 +103,9 @@ export class OverlayScrollbar extends LitElement {
- 
-       if (!scrollable) return;
- 
-+      event.preventDefault();
-+      event.stopPropagation();
-+
-       // firefox may report a wheel event with deltaMode of value other than 0
-       // we just simply multiply it by 16 which is common default line height to get the correct value
-       const scrollDistance =
 diff --git a/blocksuite/affine/model/src/consts/shape.ts b/blocksuite/affine/model/src/consts/shape.ts
-index 51da58289c..f7a054dafb 100644
+index 51da58289..f7a054daf 100644
 --- a/blocksuite/affine/model/src/consts/shape.ts
 +++ b/blocksuite/affine/model/src/consts/shape.ts
 @@ -15,6 +15,66 @@ export enum ShapeType {
@@ -13315,7 +13301,7 @@ index 51da58289c..f7a054dafb 100644
  export type ShapeName = ShapeType | 'roundedRect';
 diff --git a/blocksuite/affine/model/src/elements/shape/api/actor.ts b/blocksuite/affine/model/src/elements/shape/api/actor.ts
 new file mode 100644
-index 0000000000..dfdf5939d0
+index 000000000..dfdf5939d
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/actor.ts
 @@ -0,0 +1,35 @@
@@ -13356,7 +13342,7 @@ index 0000000000..dfdf5939d0
 +export const actor = createCustomShape(actorPoints, drawActor);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/callout.ts b/blocksuite/affine/model/src/elements/shape/api/callout.ts
 new file mode 100644
-index 0000000000..d91505844e
+index 000000000..d91505844
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/callout.ts
 @@ -0,0 +1,32 @@
@@ -13394,7 +13380,7 @@ index 0000000000..d91505844e
 +export const callout = createCustomShape(calloutPoints, drawCallout);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/cloud.ts b/blocksuite/affine/model/src/elements/shape/api/cloud.ts
 new file mode 100644
-index 0000000000..cf70249544
+index 000000000..cf7024954
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/cloud.ts
 @@ -0,0 +1,75 @@
@@ -13475,7 +13461,7 @@ index 0000000000..cf70249544
 +export const cloud = createCustomShape(cloudPoints, drawCloud);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/cube.ts b/blocksuite/affine/model/src/elements/shape/api/cube.ts
 new file mode 100644
-index 0000000000..e9b4719554
+index 000000000..e9b471955
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/cube.ts
 @@ -0,0 +1,31 @@
@@ -13512,7 +13498,7 @@ index 0000000000..e9b4719554
 +export const cube = createCustomShape(cubePoints, drawCube);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/custom.ts b/blocksuite/affine/model/src/elements/shape/api/custom.ts
 new file mode 100644
-index 0000000000..5e6c5c1af1
+index 000000000..5e6c5c1af
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/custom.ts
 @@ -0,0 +1,106 @@
@@ -13624,7 +13610,7 @@ index 0000000000..5e6c5c1af1
 +}
 diff --git a/blocksuite/affine/model/src/elements/shape/api/cylinder.ts b/blocksuite/affine/model/src/elements/shape/api/cylinder.ts
 new file mode 100644
-index 0000000000..f323b46d6e
+index 000000000..f323b46d6
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/cylinder.ts
 @@ -0,0 +1,30 @@
@@ -13660,7 +13646,7 @@ index 0000000000..f323b46d6e
 +export const cylinder = createCustomShape(cylinderPoints, drawCylinder);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/data-storage.ts b/blocksuite/affine/model/src/elements/shape/api/data-storage.ts
 new file mode 100644
-index 0000000000..505244b2bc
+index 000000000..505244b2b
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/data-storage.ts
 @@ -0,0 +1,33 @@
@@ -13699,7 +13685,7 @@ index 0000000000..505244b2bc
 +);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/document.ts b/blocksuite/affine/model/src/elements/shape/api/document.ts
 new file mode 100644
-index 0000000000..75026cce1e
+index 000000000..75026cce1
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/document.ts
 @@ -0,0 +1,24 @@
@@ -13729,7 +13715,7 @@ index 0000000000..75026cce1e
 +export const document = createCustomShape(documentPoints, drawDocument);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/hexagon.ts b/blocksuite/affine/model/src/elements/shape/api/hexagon.ts
 new file mode 100644
-index 0000000000..b11408050c
+index 000000000..b11408050
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/hexagon.ts
 @@ -0,0 +1,14 @@
@@ -13748,7 +13734,7 @@ index 0000000000..b11408050c
 +
 +export const hexagon = createPolygonShape(hexagonPoints);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/index.ts b/blocksuite/affine/model/src/elements/shape/api/index.ts
-index 7368d0b8b6..e56977ab14 100644
+index 7368d0b8b..e56977ab1 100644
 --- a/blocksuite/affine/model/src/elements/shape/api/index.ts
 +++ b/blocksuite/affine/model/src/elements/shape/api/index.ts
 @@ -1,12 +1,89 @@
@@ -13843,7 +13829,7 @@ index 7368d0b8b6..e56977ab14 100644
  };
 diff --git a/blocksuite/affine/model/src/elements/shape/api/internal-storage.ts b/blocksuite/affine/model/src/elements/shape/api/internal-storage.ts
 new file mode 100644
-index 0000000000..f40c4793f9
+index 000000000..f40c4793f
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/internal-storage.ts
 @@ -0,0 +1,27 @@
@@ -13876,7 +13862,7 @@ index 0000000000..f40c4793f9
 +);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/logic-and.ts b/blocksuite/affine/model/src/elements/shape/api/logic-and.ts
 new file mode 100644
-index 0000000000..c704f7daf5
+index 000000000..c704f7daf
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/logic-and.ts
 @@ -0,0 +1,24 @@
@@ -13906,7 +13892,7 @@ index 0000000000..c704f7daf5
 +export const logicAnd = createCustomShape(logicAndPoints, drawLogicAnd);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/logic-or.ts b/blocksuite/affine/model/src/elements/shape/api/logic-or.ts
 new file mode 100644
-index 0000000000..d6000bd0e5
+index 000000000..d6000bd0e
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/logic-or.ts
 @@ -0,0 +1,22 @@
@@ -13934,7 +13920,7 @@ index 0000000000..d6000bd0e5
 +export const logicOr = createCustomShape(logicOrPoints, drawLogicOr);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/note.ts b/blocksuite/affine/model/src/elements/shape/api/note.ts
 new file mode 100644
-index 0000000000..b88c0b005f
+index 000000000..b88c0b005
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/note.ts
 @@ -0,0 +1,34 @@
@@ -13974,7 +13960,7 @@ index 0000000000..b88c0b005f
 +export const note = createCustomShape(notePoints, drawNote);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/parallelogram.ts b/blocksuite/affine/model/src/elements/shape/api/parallelogram.ts
 new file mode 100644
-index 0000000000..2165c3f80c
+index 000000000..2165c3f80
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/parallelogram.ts
 @@ -0,0 +1,16 @@
@@ -13996,7 +13982,7 @@ index 0000000000..2165c3f80c
 +export const parallelogram = createPolygonShape(parallelogramPoints);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/path-builders.ts b/blocksuite/affine/model/src/elements/shape/api/path-builders.ts
 new file mode 100644
-index 0000000000..7815d13387
+index 000000000..7815d1338
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/path-builders.ts
 @@ -0,0 +1,41 @@
@@ -14043,7 +14029,7 @@ index 0000000000..7815d13387
 +};
 diff --git a/blocksuite/affine/model/src/elements/shape/api/polygon.ts b/blocksuite/affine/model/src/elements/shape/api/polygon.ts
 new file mode 100644
-index 0000000000..8c25ed246b
+index 000000000..8c25ed246
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/polygon.ts
 @@ -0,0 +1,109 @@
@@ -14158,7 +14144,7 @@ index 0000000000..8c25ed246b
 +}
 diff --git a/blocksuite/affine/model/src/elements/shape/api/step.ts b/blocksuite/affine/model/src/elements/shape/api/step.ts
 new file mode 100644
-index 0000000000..4a4d18527a
+index 000000000..4a4d18527
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/step.ts
 @@ -0,0 +1,18 @@
@@ -14182,7 +14168,7 @@ index 0000000000..4a4d18527a
 +export const step = createPolygonShape(stepPoints);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/tape.ts b/blocksuite/affine/model/src/elements/shape/api/tape.ts
 new file mode 100644
-index 0000000000..43411edb9e
+index 000000000..43411edb9
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/tape.ts
 @@ -0,0 +1,26 @@
@@ -14214,7 +14200,7 @@ index 0000000000..43411edb9e
 +export const tape = createCustomShape(tapePoints, drawTape);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/trapezoid.ts b/blocksuite/affine/model/src/elements/shape/api/trapezoid.ts
 new file mode 100644
-index 0000000000..b0fd8ac826
+index 000000000..b0fd8ac82
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/trapezoid.ts
 @@ -0,0 +1,16 @@
@@ -14236,7 +14222,7 @@ index 0000000000..b0fd8ac826
 +export const trapezoid = createPolygonShape(trapezoidPoints);
 diff --git a/blocksuite/affine/model/src/elements/shape/api/triangle-right.ts b/blocksuite/affine/model/src/elements/shape/api/triangle-right.ts
 new file mode 100644
-index 0000000000..e6be1197b4
+index 000000000..e6be1197b
 --- /dev/null
 +++ b/blocksuite/affine/model/src/elements/shape/api/triangle-right.ts
 @@ -0,0 +1,11 @@
@@ -14252,7 +14238,7 @@ index 0000000000..e6be1197b4
 +
 +export const triangleRight = createPolygonShape(triangleRightPoints);
 diff --git a/blocksuite/affine/model/src/elements/shape/index.ts b/blocksuite/affine/model/src/elements/shape/index.ts
-index ac6b7c18b1..d8e218ae5c 100644
+index ac6b7c18b..d8e218ae5 100644
 --- a/blocksuite/affine/model/src/elements/shape/index.ts
 +++ b/blocksuite/affine/model/src/elements/shape/index.ts
 @@ -1,2 +1,4 @@
@@ -14261,7 +14247,7 @@ index ac6b7c18b1..d8e218ae5c 100644
 +export * from './api/path-builders.js';
  export * from './shape.js';
 diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
-index db2b492477..622e7406a7 100644
+index db2b49247..622e7406a 100644
 --- a/blocksuite/affine/shared/src/utils/zod-schema.ts
 +++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
 @@ -207,6 +207,66 @@ export const NodePropsSchema = z.object({
@@ -14332,7 +14318,7 @@ index db2b492477..622e7406a7 100644
  });
  
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
-index 67f1f3a74a..e6abb5b83c 100644
+index 67f1f3a74..e6abb5b83 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 @@ -20,6 +20,7 @@ import type {
@@ -14541,7 +14527,7 @@ index 67f1f3a74a..e6abb5b83c 100644
    }
  
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts
-index 753cdcb0ee..089ec9b021 100644
+index 753cdcb0e..089ec9b02 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts
 @@ -4,12 +4,17 @@ import {
@@ -14564,7 +14550,7 @@ index 753cdcb0ee..089ec9b021 100644
      EDGELESS_SELECTED_RECT_WIDGET,
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/flowchart-shape-panel.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/flowchart-shape-panel.ts
 new file mode 100644
-index 0000000000..06750744df
+index 000000000..06750744d
 --- /dev/null
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/flowchart-shape-panel.ts
 @@ -0,0 +1,273 @@
@@ -14842,7 +14828,7 @@ index 0000000000..06750744df
 +  }
 +}
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/utils.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/utils.ts
-index 1d999d1f68..f56f6549a7 100644
+index 1d999d1f6..f56f6549a 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/utils.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/utils.ts
 @@ -38,6 +38,45 @@ export enum Direction {
@@ -14893,7 +14879,7 @@ index 1d999d1f68..f56f6549a7 100644
  export const DEFAULT_NOTE_OVERLAY_HEIGHT = 110;
 diff --git a/blocksuite/integration-test/src/__tests__/edgeless/shape-browser.spec.ts b/blocksuite/integration-test/src/__tests__/edgeless/shape-browser.spec.ts
 new file mode 100644
-index 0000000000..16dbc9ae40
+index 000000000..16dbc9ae4
 --- /dev/null
 +++ b/blocksuite/integration-test/src/__tests__/edgeless/shape-browser.spec.ts
 @@ -0,0 +1,71 @@
@@ -14968,90 +14954,9 @@ index 0000000000..16dbc9ae40
 +    expect(names).not.toContain('Flowchart');
 +  });
 +});
-diff --git a/packages/frontend/core/src/modules/peek-view/view/modal-container.css.ts b/packages/frontend/core/src/modules/peek-view/view/modal-container.css.ts
-index ad2446adcd..b9369923c7 100644
---- a/packages/frontend/core/src/modules/peek-view/view/modal-container.css.ts
-+++ b/packages/frontend/core/src/modules/peek-view/view/modal-container.css.ts
-@@ -8,6 +8,9 @@ export const modalOverlay = style({
-   zIndex: cssVar('zIndexModal'),
-   backgroundColor: cssVarV2('layer/background/modal'),
-   pointerEvents: 'auto',
-+  overflow: 'hidden',
-+  overscrollBehavior: 'none',
-+  touchAction: 'none',
-   selectors: {
-     '&[data-anime-state="animating"]': {
-       opacity: 0,
-diff --git a/packages/frontend/core/src/modules/peek-view/view/modal-container.tsx b/packages/frontend/core/src/modules/peek-view/view/modal-container.tsx
-index 40bf383c50..9eab8ff554 100644
---- a/packages/frontend/core/src/modules/peek-view/view/modal-container.tsx
-+++ b/packages/frontend/core/src/modules/peek-view/view/modal-container.tsx
-@@ -354,6 +354,62 @@ export const PeekViewModalContainer = forwardRef<
-     };
-   }, [onOpenChange]);
- 
-+  useEffect(() => {
-+    if (!open) return;
-+    const onWheel = (event: WheelEvent) => {
-+      const target = event.target as HTMLElement | null;
-+      if (target?.classList.contains(styles.modalOverlay)) {
-+        event.preventDefault();
-+        event.stopPropagation();
-+      }
-+    };
-+    document.addEventListener('wheel', onWheel, {
-+      passive: false,
-+      capture: true,
-+    });
-+    return () => {
-+      document.removeEventListener('wheel', onWheel, true);
-+    };
-+  }, [open]);
-+
-+  useEffect(() => {
-+    const overlay = overlayRef.current as HTMLElement | null;
-+    if (!overlay) return;
-+
-+    const onWheel = (event: WheelEvent) => {
-+      const target = event.target as HTMLElement | null;
-+      console.log('[modal-overlay-wheel]', {
-+        deltaY: event.deltaY,
-+        target: target?.tagName,
-+        targetClass: target?.className,
-+        passive: event.cancelable === false,
-+      });
-+      event.preventDefault();
-+      event.stopPropagation();
-+    };
-+
-+    const onDocWheel = (event: WheelEvent) => {
-+      const target = event.target as HTMLElement | null;
-+      console.log('[modal-doc-wheel]', {
-+        deltaY: event.deltaY,
-+        target: target?.tagName,
-+        targetClass: target?.className,
-+        cancelable: event.cancelable,
-+      });
-+      event.preventDefault();
-+    };
-+
-+    overlay.addEventListener('wheel', onWheel, { passive: false });
-+    document.addEventListener('wheel', onDocWheel, {
-+      passive: false,
-+      capture: true,
-+    });
-+    return () => {
-+      overlay.removeEventListener('wheel', onWheel);
-+      document.removeEventListener('wheel', onDocWheel, true);
-+    };
-+  }, [overlayRef]);
-+
-   useLayoutEffect(() => {
-     if (animation === 'zoom') {
-       open ? animateZoomIn() : animateZoomOut();
 diff --git a/tests/blocksuite/e2e/edgeless/shape-browser.spec.ts b/tests/blocksuite/e2e/edgeless/shape-browser.spec.ts
 new file mode 100644
-index 0000000000..97127a985f
+index 000000000..97127a985
 --- /dev/null
 +++ b/tests/blocksuite/e2e/edgeless/shape-browser.spec.ts
 @@ -0,0 +1,310 @@
@@ -15366,7 +15271,7 @@ index 0000000000..97127a985f
 +  });
 +});
 diff --git a/tests/blocksuite/e2e/edgeless/shape.spec.ts b/tests/blocksuite/e2e/edgeless/shape.spec.ts
-index 1e55d5b409..76502fe43f 100644
+index 1e55d5b40..76502fe43 100644
 --- a/tests/blocksuite/e2e/edgeless/shape.spec.ts
 +++ b/tests/blocksuite/e2e/edgeless/shape.spec.ts
 @@ -566,6 +566,105 @@ test('flip horizontal on rotated diamond keeps connector attached and mirrored',
@@ -15475,74 +15380,3 @@ index 1e55d5b409..76502fe43f 100644
  //FIXME: need a way to test hand-drawn-like style
  test.skip('change shape fill color', async ({ page }) => {
    await enterPlaygroundRoom(page);
-diff --git a/tools/utils/src/workspace.gen.ts b/tools/utils/src/workspace.gen.ts
-index 2c52924ad6..7ba961c3bc 100644
---- a/tools/utils/src/workspace.gen.ts
-+++ b/tools/utils/src/workspace.gen.ts
-@@ -539,6 +539,7 @@ export const PackageList = [
-       'blocksuite/affine/blocks/surface',
-       'blocksuite/affine/components',
-       'blocksuite/affine/ext-loader',
-+      'blocksuite/affine/gfx/shape',
-       'blocksuite/affine/gfx/text',
-       'blocksuite/affine/model',
-       'blocksuite/affine/rich-text',
-diff --git a/yarn.lock b/yarn.lock
-index 252e311fd4..9519a16290 100644
---- a/yarn.lock
-+++ b/yarn.lock
-@@ -2616,6 +2616,7 @@ __metadata:
-     "@blocksuite/icons": "npm:^2.2.17"
-     "@blocksuite/std": "workspace:*"
-     "@blocksuite/store": "workspace:*"
-+    "@floating-ui/dom": "npm:^1.7.4"
-     "@lit/context": "npm:^1.1.2"
-     "@preact/signals-core": "npm:^1.8.0"
-     "@types/lodash-es": "npm:^4.17.12"
-@@ -5499,6 +5500,15 @@ __metadata:
-   languageName: node
-   linkType: hard
- 
-+"@floating-ui/core@npm:^1.7.5":
-+  version: 1.7.5
-+  resolution: "@floating-ui/core@npm:1.7.5"
-+  dependencies:
-+    "@floating-ui/utils": "npm:^0.2.11"
-+  checksum: 10/fecdc9b3ce93f02bf78a6114b93730a4cb9fa8234c62f9a949016186297a039c9f9cd3c5c81ff74b93ebddf0b32048c4af7a528afe7904b75423ed2e7491b888
-+  languageName: node
-+  linkType: hard
-+
- "@floating-ui/dom@npm:^1.0.0, @floating-ui/dom@npm:^1.6.12, @floating-ui/dom@npm:^1.6.13":
-   version: 1.7.0
-   resolution: "@floating-ui/dom@npm:1.7.0"
-@@ -5509,6 +5519,16 @@ __metadata:
-   languageName: node
-   linkType: hard
- 
-+"@floating-ui/dom@npm:^1.7.4":
-+  version: 1.7.6
-+  resolution: "@floating-ui/dom@npm:1.7.6"
-+  dependencies:
-+    "@floating-ui/core": "npm:^1.7.5"
-+    "@floating-ui/utils": "npm:^0.2.11"
-+  checksum: 10/84dff2ffdf85c8b92d7edafc543c55869abbeaeb3007fa983159467e050153b507a0f5fe8e84f88c3f28c35a82de9df9c20a6eef5560cbba3afae19141444ff2
-+  languageName: node
-+  linkType: hard
-+
- "@floating-ui/react-dom@npm:^2.0.0":
-   version: 2.1.2
-   resolution: "@floating-ui/react-dom@npm:2.1.2"
-@@ -5521,6 +5541,13 @@ __metadata:
-   languageName: node
-   linkType: hard
- 
-+"@floating-ui/utils@npm:^0.2.11":
-+  version: 0.2.11
-+  resolution: "@floating-ui/utils@npm:0.2.11"
-+  checksum: 10/72150138ba1c274d757a1da85233202fa9fdfd2272ec1fb0883eb0ffdf138863af81573049ed2c20b98adb4b7ae2236065541ce14037fe328955089831a678d5
-+  languageName: node
-+  linkType: hard
-+
- "@floating-ui/utils@npm:^0.2.9":
-   version: 0.2.9
-   resolution: "@floating-ui/utils@npm:0.2.9"
