@@ -1,15 +1,15 @@
-From cf5b625038c834f374384faf9d357b31b6f1d770 Mon Sep 17 00:00:00 2001
-From: Patch Test <patch-test@local>
-Date: Sun, 3 May 2026 12:13:35 -0600
-Subject: [PATCH 2/2] Ensure drawio library shapes are automatically added to
- the shape menu under correct headings and render correctly
+From 6e457d407772d007c8ba8e4ce1deef27632259a7 Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Mon, 4 May 2026 20:07:40 -0600
+Subject: [PATCH] Ensure drawio library shapes are automatically added to the
+ shape menu under correct headings and render correctly
 
 ---
  .../src/components/shape-browser-panel.ts     | 302 ++++++++-------
  .../shape/src/draggable/shape-tool-button.ts  |  35 +-
  .../affine/gfx/shape/src/drawio/index.ts      |   2 +-
  .../gfx/shape/src/drawio/stencil-utils.ts     |  11 +-
- .../src/element-renderer/shape-dom/index.ts   | 358 +++++++++++++++---
+ .../src/element-renderer/shape-dom/index.ts   | 356 +++++++++++++++---
  .../shape/src/element-renderer/shape/index.ts | 208 +++++++++-
  .../element-renderer/shape/stencil-shape.ts   |  28 +-
  .../affine/gfx/shape/src/overlay/factory.ts   |  28 +-
@@ -19,8 +19,8 @@ Subject: [PATCH 2/2] Ensure drawio library shapes are automatically added to
  blocksuite/affine/model/src/consts/shape.ts   |  29 ++
  .../model/src/elements/shape/api/index.ts     |  11 +
  .../affine/model/src/elements/shape/shape.ts  |  58 ++-
- .../affine/shared/src/utils/zod-schema.ts     |  31 ++
- 15 files changed, 1040 insertions(+), 282 deletions(-)
+ .../affine/shared/src/utils/zod-schema.ts     |  29 ++
+ 15 files changed, 1029 insertions(+), 289 deletions(-)
 
 diff --git a/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts b/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
 index 6b832cc544..da2d00fd33 100644
@@ -511,7 +511,7 @@ index 6b832cc544..da2d00fd33 100644
                        </div>
                      `
 diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
-index a1bb2c3e90..89db11b849 100644
+index 06a110897a..9a48433cec 100644
 --- a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
 +++ b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
 @@ -1,4 +1,4 @@
@@ -637,7 +637,7 @@ index 418bf1ba9e..5a37a138e4 100644
  const scale = (value: number, total: number) => value * total;
  
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
-index 08929bd12b..ba79c1428b 100644
+index a2a1b1cc96..ba79c1428b 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 @@ -1,13 +1,18 @@
@@ -799,21 +799,18 @@ index 08929bd12b..ba79c1428b 100644
      setStyles(element, {
        transform: transforms.join(' '),
        transformOrigin: 'center',
-@@ -207,6 +292,13 @@ export const shapeDomRenderer = (
-     DefaultTheme.shapeStrokeColor,
-     true
-   );
-+  const gradientFinal = model.gradientFinal
-+    ? renderer.getColorValue(model.gradientFinal, fillColor, true)
-+    : undefined;
-+  const gradientDirection = model.gradientDirection ?? 'S';
+@@ -211,8 +296,9 @@ export const shapeDomRenderer = (
+     ? renderer.getColorValue(model.gradientFinal, fillColor, true)
+     : undefined;
+   const gradientDirection = model.gradientDirection ?? 'S';
 +  const isFilled = model.filled || model.shapeType === 'drawioStencil';
-+  const hasGradient =
+   const hasGradient =
+-    Boolean(gradientFinal) && model.filled && gradientFinal !== fillColor;
 +    Boolean(gradientFinal) && isFilled && gradientFinal !== fillColor;
  
    element.style.width = `${unscaledWidth * zoom}px`;
    element.style.height = `${unscaledHeight * zoom}px`;
-@@ -236,34 +328,91 @@ export const shapeDomRenderer = (
+@@ -242,34 +328,91 @@ export const shapeDomRenderer = (
      const right = inset + width;
      const bottom = inset + height;
  
@@ -919,7 +916,7 @@ index 08929bd12b..ba79c1428b 100644
          path.setAttribute('stroke-width', String(strokeW));
          if (finalStrokeDasharray !== 'none') {
            path.setAttribute('stroke-dasharray', finalStrokeDasharray);
-@@ -273,12 +422,19 @@ export const shapeDomRenderer = (
+@@ -279,12 +422,19 @@ export const shapeDomRenderer = (
            );
          }
          path.setAttribute('transform', `translate(${left} ${top})`);
@@ -940,7 +937,7 @@ index 08929bd12b..ba79c1428b 100644
        case 'diamond':
          svgPath = buildPathFromPoints([
            [left + width / 2, top],
-@@ -394,33 +550,37 @@ export const shapeDomRenderer = (
+@@ -400,37 +550,37 @@ export const shapeDomRenderer = (
          break;
      }
  
@@ -955,7 +952,11 @@ index 08929bd12b..ba79c1428b 100644
 -          ? `${Math.max(1, strokeW)}, ${strokeW * 2.5}`
 -          : 'none';
 -    // Determine fill color
--    const finalFillColor = model.filled ? fillColor : 'transparent';
+-    const finalFillColor = model.filled
+-      ? hasGradient
+-        ? `url(#shape-grad-${model.id})`
+-        : fillColor
+-      : 'transparent';
 -
      // Build SVG safely with DOM-API
 -    const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -993,7 +994,7 @@ index 08929bd12b..ba79c1428b 100644
      path.setAttribute('stroke', finalStrokeColor);
      path.setAttribute('stroke-width', String(strokeW));
      if (finalStrokeDasharray !== 'none') {
-@@ -430,7 +590,7 @@ export const shapeDomRenderer = (
+@@ -440,7 +590,7 @@ export const shapeDomRenderer = (
          model.strokeStyle === 'dot' ? 'round' : 'butt'
        );
      }
@@ -1002,7 +1003,7 @@ index 08929bd12b..ba79c1428b 100644
  
      if (model.shapeType === 'cube') {
        buildCubeInnerPaths(width, height).forEach(innerPath => {
-@@ -449,18 +609,63 @@ export const shapeDomRenderer = (
+@@ -459,24 +609,63 @@ export const shapeDomRenderer = (
              model.strokeStyle === 'dot' ? 'round' : 'butt'
            );
          }
@@ -1018,14 +1019,16 @@ index 08929bd12b..ba79c1428b 100644
      // Standard rendering for other shapes (e.g., rect, ellipse)
      // innerHTML was already cleared by applyShapeSpecificStyles if necessary
 -    element.style.backgroundColor = model.filled ? fillColor : 'transparent';
+-    if (hasGradient && gradientFinal) {
 +    if (hasGradient && gradientFinal && isFilled) {
-+      const direction = cssGradientDirectionMap[gradientDirection];
-+      element.style.backgroundImage = `linear-gradient(${direction}, ${fillColor}, ${gradientFinal})`;
+       const direction = cssGradientDirectionMap[gradientDirection];
+       element.style.backgroundImage = `linear-gradient(${direction}, ${fillColor}, ${gradientFinal})`;
 +      element.style.backgroundColor = fillColor;
-+    } else {
+     } else {
+-      element.style.backgroundImage = 'none';
 +      element.style.backgroundImage = '';
 +      element.style.backgroundColor = isFilled ? fillColor : 'transparent';
-+    }
+     }
      applyBorderStyles(model, element, strokeColor, zoom); // Uses standard CSS border
    }
  
@@ -1068,7 +1071,7 @@ index 08929bd12b..ba79c1428b 100644
    if (model.textDisplay && model.text) {
      const str = model.text.toString();
      const textElement = document.createElement('div');
-@@ -489,7 +694,68 @@ export const shapeDomRenderer = (
+@@ -505,7 +694,68 @@ export const shapeDomRenderer = (
        DefaultTheme.shapeTextColor,
        true
      );
@@ -2112,10 +2115,10 @@ index 416ea7270b..0138f86ea7 100644
    accessor text: string = '';
  
 diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
-index d9430602f8..3dc7ae3592 100644
+index 622e7406a7..acb860aeb2 100644
 --- a/blocksuite/affine/shared/src/utils/zod-schema.ts
 +++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
-@@ -49,11 +49,14 @@ export const ConnectorSchema = z
+@@ -50,6 +50,8 @@ export const ConnectorSchema = z
    .object({
      frontEndpointStyle: ConnectorEndpointSchema,
      rearEndpointStyle: ConnectorEndpointSchema,
@@ -2124,13 +2127,7 @@ index d9430602f8..3dc7ae3592 100644
      stroke: ColorSchema,
      strokeStyle: StrokeStyleSchema,
      strokeWidth: LineWidthSchema,
-     rough: z.boolean(),
-     mode: ConnectorModeSchema,
-+    cornerRadius: z.number(),
-     labelStyle: z.object({
-       color: ColorSchema,
-       fontSize: z.number(),
-@@ -66,11 +69,14 @@ export const ConnectorSchema = z
+@@ -71,6 +73,8 @@ export const ConnectorSchema = z
    .default({
      frontEndpointStyle: DEFAULT_FRONT_ENDPOINT_STYLE,
      rearEndpointStyle: DEFAULT_REAR_ENDPOINT_STYLE,
@@ -2139,13 +2136,7 @@ index d9430602f8..3dc7ae3592 100644
      stroke: DefaultTheme.connectorColor,
      strokeStyle: StrokeStyle.Solid,
      strokeWidth: LineWidth.Two,
-     rough: false,
-     mode: DEFAULT_CONNECTOR_MODE,
-+    cornerRadius: 0,
-     labelStyle: {
-       color: DefaultTheme.black,
-       fontSize: 16,
-@@ -111,6 +117,10 @@ const DEFAULT_SHAPE = {
+@@ -120,6 +124,10 @@ const DEFAULT_SHAPE = {
    gradientDirection: undefined,
    flipX: false,
    flipY: false,
@@ -2156,7 +2147,7 @@ index d9430602f8..3dc7ae3592 100644
    strokeColor: DefaultTheme.shapeStrokeColor,
    strokeStyle: StrokeStyle.Solid,
    strokeWidth: LineWidth.Two,
-@@ -123,6 +133,7 @@ const DEFAULT_SHAPE = {
+@@ -132,6 +140,7 @@ const DEFAULT_SHAPE = {
    fontStyle: FontStyle.Normal,
    textAlign: TextAlign.Center,
    roughness: DEFAULT_ROUGHNESS,
@@ -2164,7 +2155,7 @@ index d9430602f8..3dc7ae3592 100644
  };
  
  const ShapeObject = {
-@@ -134,6 +145,10 @@ const ShapeObject = {
+@@ -143,6 +152,10 @@ const ShapeObject = {
      .optional(),
    flipX: z.boolean().optional(),
    flipY: z.boolean().optional(),
@@ -2175,7 +2166,7 @@ index d9430602f8..3dc7ae3592 100644
    strokeColor: ColorSchema,
    strokeStyle: StrokeStyleSchema,
    strokeWidth: z.number(),
-@@ -148,6 +163,11 @@ const ShapeObject = {
+@@ -157,6 +170,11 @@ const ShapeObject = {
    textHorizontalAlign: TextAlignSchema.optional(),
    textVerticalAlign: TextVerticalAlignSchema.optional(),
    roughness: z.number(),
@@ -2187,7 +2178,7 @@ index d9430602f8..3dc7ae3592 100644
  };
  
  export const ShapeSchema = z.object(ShapeObject).default(DEFAULT_SHAPE);
-@@ -258,6 +278,17 @@ export const NodePropsSchema = z.object({
+@@ -267,6 +285,17 @@ export const NodePropsSchema = z.object({
    'shape:arrowCalloutUp': ShapeSchema,
    'shape:arrowCalloutDouble': ShapeSchema,
    'shape:arrowCalloutQuad': ShapeSchema,
