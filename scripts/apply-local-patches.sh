@@ -221,7 +221,7 @@ apply_diff_patch() {
     return 1
   fi
 
-  git -C "$REPO_PATH" commit -m "Apply patch: $rel_patch" >/dev/null
+  git -C "$REPO_PATH" commit --no-verify -m "Apply patch: $rel_patch" >/dev/null
   return 0
 }
 
