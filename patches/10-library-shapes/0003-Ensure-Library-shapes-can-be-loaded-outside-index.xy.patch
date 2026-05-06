@@ -35,7 +35,7 @@ index bc87bfb43cb08787b482f5020ed7f636968a30d7..54838f6fe7b9c521491942d4955a7532
  );
  
 -const SHAPE_BROWSER_ITEMS: ShapeBrowserItem[] = [
-+const BASE_SHAPE_BROWSER_ITEMS: ShapeBrowserItem[] = [
++const SHAPE_BROWSER_ITEMS: ShapeBrowserItem[] = [
    {
      id: 'rectangle',
      category: 'general',
@@ -77,7 +77,7 @@ index bc87bfb43cb08787b482f5020ed7f636968a30d7..54838f6fe7b9c521491942d4955a7532
 +      categoryLabel: entry.categoryLabel,
 +      stencilName: entry.stencilName,
 +    }));
-+    return [...BASE_SHAPE_BROWSER_ITEMS, ...libraryItems];
++    return [...SHAPE_BROWSER_ITEMS, ...libraryItems];
 +  }
 +
 +  private async _loadLibraryShapesData() {
@@ -194,4 +194,3 @@ index 5a37a138e4a76df6bba3b00a49569c533d54bc30..94c66c96bd2a5e9e0cd3d24cdcc1ea15
  
 -- 
 2.53.0
-
