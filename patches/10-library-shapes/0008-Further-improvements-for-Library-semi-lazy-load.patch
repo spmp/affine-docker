@@ -4,25 +4,11 @@ Date: Tue, 5 May 2026 16:11:52 -0600
 Subject: [PATCH 08/10] Further improvements for Library (semi) lazy load
 
 ---
- .oxlintrc.json                                |  2 ++
  .../src/components/shape-browser-panel.ts     | 20 ++----------------
  .../affine/gfx/shape/src/drawio/index.ts      |  6 +-----
  .../gfx/shape/src/drawio/stencil-utils.ts     | 21 ++-----------------
  4 files changed, 7 insertions(+), 42 deletions(-)
 
-diff --git a/.oxlintrc.json b/.oxlintrc.json
-index cb667d81568fc4bd0d4ac68fdfa9954f74287669..e69669d8e0c0fad5dcd637e83cdb8e17ffb050b9 100644
---- a/.oxlintrc.json
-+++ b/.oxlintrc.json
-@@ -52,6 +52,8 @@
-     "packages/frontend/apps/ios/App/**",
-     "tests/blocksuite/snapshots",
-     "blocksuite/docs/api/**",
-+    "blocksuite/affine/gfx/shape/src/drawio/library-catalog.ts",
-+    "blocksuite/affine/gfx/shape/src/drawio/library-stencils.ts",
-     "packages/frontend/admin/src/config.json",
-     "**/test-docs.json",
-     "**/test-blocks.json"
 diff --git a/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts b/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
 index 54838f6fe7b9c521491942d4955a7532d7e94c6e..f6efba8381b0a205532f462c365eb7b31d207bba 100644
 --- a/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
