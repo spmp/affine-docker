@@ -1,11 +1,11 @@
-From 6e457d407772d007c8ba8e4ce1deef27632259a7 Mon Sep 17 00:00:00 2001
-From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
-Date: Mon, 4 May 2026 20:07:40 -0600
-Subject: [PATCH] Ensure drawio library shapes are automatically added to the
- shape menu under correct headings and render correctly
+From 0bcd4d69d223303005b388be07fbe336622cd3d3 Mon Sep 17 00:00:00 2001
+From: Patch Test <patch-test@local>
+Date: Tue, 5 May 2026 10:15:30 -0600
+Subject: [PATCH 01/10] Ensure drawio library shapes are automatically added to
+ the shape menu under correct headings and render correctly
 
 ---
- .../src/components/shape-browser-panel.ts     | 302 ++++++++-------
+ .../src/components/shape-browser-panel.ts     | 209 +++++++---
  .../shape/src/draggable/shape-tool-button.ts  |  35 +-
  .../affine/gfx/shape/src/drawio/index.ts      |   2 +-
  .../gfx/shape/src/drawio/stencil-utils.ts     |  11 +-
@@ -19,11 +19,11 @@ Subject: [PATCH] Ensure drawio library shapes are automatically added to the
  blocksuite/affine/model/src/consts/shape.ts   |  29 ++
  .../model/src/elements/shape/api/index.ts     |  11 +
  .../affine/model/src/elements/shape/shape.ts  |  58 ++-
- .../affine/shared/src/utils/zod-schema.ts     |  29 ++
- 15 files changed, 1029 insertions(+), 289 deletions(-)
+ .../affine/shared/src/utils/zod-schema.ts     |  31 +-
+ 15 files changed, 1028 insertions(+), 199 deletions(-)
 
 diff --git a/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts b/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
-index 6b832cc544..da2d00fd33 100644
+index 6b832cc544d026cdd80bd355ed66cd960f3f1c7e..6f11bd42c6dcca87399636bf49fc4f21bcf417b8 100644
 --- a/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
 +++ b/blocksuite/affine/gfx/shape/src/components/shape-browser-panel.ts
 @@ -2,7 +2,11 @@ import {
@@ -281,41 +281,7 @@ index 6b832cc544..da2d00fd33 100644
        })
      );
    }
-@@ -465,33 +548,6 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
-     this._searchKeyword = (e.target as HTMLInputElement).value;
-   }
- 
--  private _stopNonEscapeKeydown(event: KeyboardEvent) {
--    if (event.key === 'Escape') return;
--    stopPropagation(event);
--  }
--
--  private _focusSearchInput() {
--    const input = this.renderRoot.querySelector(
--      '.search-input'
--    ) as HTMLInputElement | null;
--    input?.focus();
--  }
--
--  private _forceFocusSearchInput() {
--    const focusNow = () => {
--      const input = this.renderRoot.querySelector(
--        '.search-input'
--      ) as HTMLInputElement | null;
--      if (!input) return;
--      input.focus();
--    };
--
--    focusNow();
--    queueMicrotask(focusNow);
--    requestAnimationFrame(focusNow);
--    setTimeout(focusNow, 0);
--  }
--
-   private _getShapesForCategory(category: ShapeCategory) {
-     let shapes = SHAPE_BROWSER_ITEMS.filter(
-       shape => shape.category === category
-@@ -502,8 +558,9 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
+@@ -502,8 +585,9 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
        const keyword = this._searchKeyword.toLowerCase();
        shapes = shapes.filter(
          shape =>
@@ -327,75 +293,19 @@ index 6b832cc544..da2d00fd33 100644
        );
      }
  
-@@ -518,8 +575,8 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
+@@ -518,8 +602,9 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
        ? SHAPE_BROWSER_ITEMS.filter(shape => {
            const keyword = this._searchKeyword.toLowerCase();
            return (
 -            String(shape.name).toLowerCase().includes(keyword) ||
 -            (shape.tooltip ?? '').toLowerCase().includes(keyword)
 +            shape.name.toLowerCase().includes(keyword) ||
-+            shape.tooltip.toLowerCase().includes(keyword)
++            shape.tooltip.toLowerCase().includes(keyword) ||
++            shape.stencilName?.toLowerCase().includes(keyword)
            );
          })
        : SHAPE_BROWSER_ITEMS;
-@@ -551,55 +608,15 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
- 
-   override connectedCallback(): void {
-     super.connectedCallback();
--    this.addEventListener('keydown', this._stopNonEscapeKeydown, true);
--    this.addEventListener('keydown', this._stopNonEscapeKeydown, false);
-+    this.addEventListener('keydown', stopPropagation, false);
-     this._disposables.addFromEvent(this, 'click', stopPropagation);
-     this._disposables.addFromEvent(this, 'pointerdown', stopPropagation);
-     this._disposables.addFromEvent(window, 'resize', () => {
-       this._viewportWidth = window.innerWidth;
-     });
--    this._disposables.addFromEvent(
--      window,
--      'keydown',
--      (event: KeyboardEvent) => {
--        if (!this._captureSearchKeys) return;
--        if (event.metaKey || event.ctrlKey || event.altKey) return;
--
--        const input = this.renderRoot.querySelector(
--          '.search-input'
--        ) as HTMLInputElement | null;
--        if (!input) return;
--
--        if (event.key === 'Backspace') {
--          event.preventDefault();
--          event.stopPropagation();
--          this._searchKeyword = this._searchKeyword.slice(0, -1);
--          input.value = this._searchKeyword;
--          return;
--        }
--
--        if (
--          event.key === 'Escape' ||
--          event.key === 'Enter' ||
--          event.key === 'Tab'
--        ) {
--          return;
--        }
--
--        if (event.key.length === 1) {
--          event.preventDefault();
--          event.stopPropagation();
--          this._searchKeyword = `${this._searchKeyword}${event.key}`;
--          input.value = this._searchKeyword;
--        }
--      },
--      true
--    );
-   }
- 
-   override firstUpdated() {
--    this._focusSearchInput();
--
-     const scrollContent = this.renderRoot.querySelector(
-       '.shapes-scrollcontent'
-     );
-@@ -627,6 +644,41 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
+@@ -627,6 +712,41 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
      }, this);
    }
  
@@ -437,55 +347,7 @@ index 6b832cc544..da2d00fd33 100644
    override render() {
      const availableCategories = this._getAvailableCategories();
      const selectedCategory = availableCategories.find(
-@@ -637,7 +689,7 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
-     const shapesInCategory = this._getShapesForCategory(effectiveCategory);
-     const layout = getShapeBrowserLayout(
-       this._viewportWidth,
--      Math.max(1, SHAPE_BROWSER_ITEMS.length)
-+      Math.max(1, shapesInCategory.length)
-     );
-     const appTheme = this.edgeless?.std?.get(ThemeProvider)?.app$?.value;
- 
-@@ -650,27 +702,12 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
-         })}
-         data-app-theme=${appTheme ?? 'light'}
-       >
--        <div
--          class="search-bar ${this._captureSearchKeys ? 'capture-mode' : ''}"
--        >
-+        <div class="search-bar">
-           <input
-             class="search-input"
-             type="text"
-             placeholder="Search shapes..."
-             @input=${this._updateSearchKeyword}
--            @pointerdown=${(event: PointerEvent) => {
--              event.preventDefault();
--              stopPropagation(event);
--              this._captureSearchKeys = true;
--              this._forceFocusSearchInput();
--            }}
--            @click=${(event: MouseEvent) => {
--              event.preventDefault();
--              stopPropagation(event);
--              this._captureSearchKeys = true;
--              this._forceFocusSearchInput();
--            }}
--            @keydown=${this._stopNonEscapeKeydown}
-             @cut=${stopPropagation}
-             @copy=${stopPropagation}
-             @paste=${stopPropagation}
-@@ -686,9 +723,6 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
-                   ? 'selected'
-                   : ''}"
-                 @click=${() => this._selectCategory(cat.id)}
--                @pointerdown=${() => {
--                  this._captureSearchKeys = false;
--                }}
-               >
-                 ${cat.name}
-               </div>
-@@ -702,17 +736,17 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
+@@ -702,17 +822,20 @@ export class EdgelessShapeBrowserPanel extends WithDisposable(LitElement) {
                  ? repeat(
                      shapesInCategory,
                      item => item.id,
@@ -498,10 +360,10 @@ index 6b832cc544..da2d00fd33 100644
                            ? 'active'
                            : ''}"
 -                        @click=${() => this._onSelect(name)}
--                        @pointerdown=${() => {
--                          this._captureSearchKeys = false;
--                        }}
 +                        @click=${() => this._onSelect(name, stencilName)}
+                         @pointerdown=${() => {
+                           this._captureSearchKeys = false;
+                         }}
                        >
 -                        ${generalIcon}
 +                        ${stencilName
@@ -511,7 +373,7 @@ index 6b832cc544..da2d00fd33 100644
                        </div>
                      `
 diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
-index 06a110897a..9a48433cec 100644
+index 06a110897a4eb26c7027239da9f4766b09fa8625..9a48433cec84d3b6ae506786ece7f2e0899d4c95 100644
 --- a/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
 +++ b/blocksuite/affine/gfx/shape/src/draggable/shape-tool-button.ts
 @@ -1,4 +1,4 @@
@@ -602,7 +464,7 @@ index 06a110897a..9a48433cec 100644
  
    override render() {
 diff --git a/blocksuite/affine/gfx/shape/src/drawio/index.ts b/blocksuite/affine/gfx/shape/src/drawio/index.ts
-index 0de7f1749a..d46364169f 100644
+index 0de7f1749aa8e7348ff957a061f2def8da261dfb..d46364169f3891af23f298eb178ab2d49d7e98a5 100644
 --- a/blocksuite/affine/gfx/shape/src/drawio/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/drawio/index.ts
 @@ -1,2 +1,2 @@
@@ -610,7 +472,7 @@ index 0de7f1749a..d46364169f 100644
 -export { getStencilShapeData } from './stencil-utils';
 +export { getStencilShapeData, STENCIL_SHAPE_NAMES } from './stencil-utils';
 diff --git a/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts b/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts
-index 418bf1ba9e..5a37a138e4 100644
+index 418bf1ba9e2332592fa080e907ed739da04e86e4..5a37a138e4a76df6bba3b00a49569c533d54bc30 100644
 --- a/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts
 +++ b/blocksuite/affine/gfx/shape/src/drawio/stencil-utils.ts
 @@ -1,3 +1,4 @@
@@ -637,7 +499,7 @@ index 418bf1ba9e..5a37a138e4 100644
  const scale = (value: number, total: number) => value * total;
  
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
-index a2a1b1cc96..ba79c1428b 100644
+index a2a1b1cc96e0a5e029589709000e7d8c06fea170..ba79c1428b7bad05dd9c2e5ca04040cdc51a8f3a 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape-dom/index.ts
 @@ -1,13 +1,18 @@
@@ -1142,7 +1004,7 @@ index a2a1b1cc96..ba79c1428b 100644
      newChildren.push(textElement);
    }
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
-index c9bcc26ff5..29756ccb14 100644
+index c9bcc26ff5925ea6092e15cfdc39dff774f4738c..29756ccb14c2be75e45ce2f84530c6b136e29d30 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
 @@ -16,7 +16,13 @@ import type {
@@ -1439,7 +1301,7 @@ index c9bcc26ff5..29756ccb14 100644
    ctx.restore();
  }
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts
-index 6a0c849174..35d2e03086 100644
+index 6a0c849174b4cff49ff012c6f5c5f2162b654fee..35d2e03086520427747d8cdc5491aac2d0cbb8c9 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/stencil-shape.ts
 @@ -2,9 +2,10 @@ import type {
@@ -1506,7 +1368,7 @@ index 6a0c849174..35d2e03086 100644
      }
    };
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/factory.ts b/blocksuite/affine/gfx/shape/src/overlay/factory.ts
-index c50b2f7abe..88d781edcd 100644
+index c50b2f7abe74995862187e2c0f16b406f3614932..88d781edcd8cc9f8d31b1842a086b2381843a53d 100644
 --- a/blocksuite/affine/gfx/shape/src/overlay/factory.ts
 +++ b/blocksuite/affine/gfx/shape/src/overlay/factory.ts
 @@ -37,14 +37,16 @@ export class ShapeFactory {
@@ -1554,7 +1416,7 @@ index c50b2f7abe..88d781edcd 100644
          throw new Error(`Unknown shape type: ${type}`);
      }
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts b/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts
-index 76f6037d6d..65cf7c5335 100644
+index 76f6037d6dba30cba62ef22adcc8a77bfafeef48..65cf7c5335e41c97b5100a6aea49802c68b1bc51 100644
 --- a/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts
 +++ b/blocksuite/affine/gfx/shape/src/overlay/shape-overlay.ts
 @@ -25,6 +25,36 @@ import type { ShapeTool } from '../shape-tool';
@@ -1704,7 +1566,7 @@ index 76f6037d6d..65cf7c5335 100644
      this.shape.draw(ctx, rc);
    }
 diff --git a/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts b/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts
-index f2795fb8d1..73c8d09090 100644
+index f2795fb8d12e5ead83560f03d6698869b625b7c0..73c8d09090d0ecf7f940ab952697217f716ab63d 100644
 --- a/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts
 +++ b/blocksuite/affine/gfx/shape/src/overlay/stencil-shape.ts
 @@ -1,5 +1,6 @@
@@ -1771,7 +1633,7 @@ index f2795fb8d1..73c8d09090 100644
        ctx,
        rc,
 diff --git a/blocksuite/affine/gfx/shape/src/shape-tool.ts b/blocksuite/affine/gfx/shape/src/shape-tool.ts
-index a9a85d497c..748d04102d 100644
+index a9a85d497cf7d76f120537105daa35a46dcc04ae..748d04102d0f67b5c5e4619d6f348b7945ae149e 100644
 --- a/blocksuite/affine/gfx/shape/src/shape-tool.ts
 +++ b/blocksuite/affine/gfx/shape/src/shape-tool.ts
 @@ -6,10 +6,12 @@ import {
@@ -1919,7 +1781,7 @@ index a9a85d497c..748d04102d 100644
      if (this._disableOverlay) return;
      if (this._draggingElement) {
 diff --git a/blocksuite/affine/model/src/consts/shape.ts b/blocksuite/affine/model/src/consts/shape.ts
-index f7a054dafb..4f7e11bb83 100644
+index f7a054dafba257c087ce650a595770b55ef4f110..4f7e11bb833f9e5c006ea82a2c7b5682bcc14808 100644
 --- a/blocksuite/affine/model/src/consts/shape.ts
 +++ b/blocksuite/affine/model/src/consts/shape.ts
 @@ -32,6 +32,16 @@ export enum ShapeType {
@@ -1968,7 +1830,7 @@ index f7a054dafb..4f7e11bb83 100644
  
  export function getShapeName(type: ShapeType, radius: number): ShapeName {
 diff --git a/blocksuite/affine/model/src/elements/shape/api/index.ts b/blocksuite/affine/model/src/elements/shape/api/index.ts
-index e56977ab14..106203ecf7 100644
+index e56977ab14823957b6e41377b1b91b2b309378b9..106203ecf75611e756c19b02e23c7c7ec5bb1ade 100644
 --- a/blocksuite/affine/model/src/elements/shape/api/index.ts
 +++ b/blocksuite/affine/model/src/elements/shape/api/index.ts
 @@ -43,6 +43,16 @@ export const shapeMethods: Record<ShapeType, typeof rect> = {
@@ -1995,7 +1857,7 @@ index e56977ab14..106203ecf7 100644
 +  drawioStencil: rect,
  };
 diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
-index 416ea7270b..0138f86ea7 100644
+index 416ea7270b77de14abf2b960fc0ca688ea7753ef..0138f86ea7efea5bb356eb73377ba19172367a0a 100644
 --- a/blocksuite/affine/model/src/elements/shape/shape.ts
 +++ b/blocksuite/affine/model/src/elements/shape/shape.ts
 @@ -41,12 +41,21 @@ export type ShapeProps = BaseElementProps & {
@@ -2115,7 +1977,7 @@ index 416ea7270b..0138f86ea7 100644
    accessor text: string = '';
  
 diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
-index 622e7406a7..acb860aeb2 100644
+index 622e7406a7d629f12888cab0ecc55d6e6eef60be..0247de77cc386f6d01a8a76b4baa84f47a5dd1f6 100644
 --- a/blocksuite/affine/shared/src/utils/zod-schema.ts
 +++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
 @@ -50,6 +50,8 @@ export const ConnectorSchema = z
@@ -2136,6 +1998,15 @@ index 622e7406a7..acb860aeb2 100644
      stroke: DefaultTheme.connectorColor,
      strokeStyle: StrokeStyle.Solid,
      strokeWidth: LineWidth.Two,
+@@ -79,7 +83,7 @@ export const ConnectorSchema = z
+     jumpStyle: 'none',
+     jumpSize: 10,
+     mode: DEFAULT_CONNECTOR_MODE,
+-    cornerRadius: DEFAULT_CONNECTOR_CORNER_RADIUS,
++    cornerRadius: 0,
+     labelStyle: {
+       color: DefaultTheme.black,
+       fontSize: 16,
 @@ -120,6 +124,10 @@ const DEFAULT_SHAPE = {
    gradientDirection: undefined,
    flipX: false,
