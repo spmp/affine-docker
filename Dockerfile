@@ -200,6 +200,9 @@ COPY --from=builder /affine/packages/frontend/apps/web/dist /app/static
 COPY --from=builder /affine/packages/frontend/admin/dist /app/static/admin
 COPY --from=builder /affine/packages/frontend/apps/mobile/dist /app/static/mobile
 
+# Fix weird float corruption
+RUN sed -i 's/f6f0289e/94853726/g' /app/static/js/index.*.js
+
 WORKDIR /app
 
 ENV LD_PRELOAD=libjemalloc.so.2
