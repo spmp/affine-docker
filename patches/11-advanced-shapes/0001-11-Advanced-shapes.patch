@@ -1,0 +1,1689 @@
+From b6568b9c1eea1285c53845ce24c4397f7756dd55 Mon Sep 17 00:00:00 2001
+From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
+Date: Thu, 7 May 2026 21:42:41 -0600
+Subject: [PATCH] 11 Advanced shapes
+
+---
+ .../gfx/connector/src/connector-manager.ts    |  15 +-
+ .../gfx/connector/src/connector-watcher.ts    |  25 +-
+ .../shape/src/element-renderer/shape/index.ts |   3 +-
+ .../element-renderer/shape/mindmap-branch.ts  |  72 +++
+ .../shape/src/element-renderer/shape/utils.ts |  40 +-
+ .../affine/gfx/shape/src/element-view.ts      | 428 +++++++++++++++++-
+ blocksuite/affine/gfx/shape/src/shape-tool.ts |  19 -
+ .../shape/src/toolbar/shape-menu-config.ts    |  56 +++
+ .../affine/model/src/elements/shape/shape.ts  |   4 +
+ .../src/services/editor-setting-service.ts    |  16 +
+ .../affine/shared/src/utils/zod-schema.ts     |   1 +
+ .../src/edgeless-auto-complete.ts             | 137 ++++--
+ .../edgeless-selected-rect/src/effects.ts     |   5 +
+ .../src/mindmap-shape-panel.ts                | 381 ++++++++++++++++
+ .../general-setting/editor/edgeless/shape.tsx |  61 +++
+ 15 files changed, 1197 insertions(+), 66 deletions(-)
+ create mode 100644 blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts
+ create mode 100644 blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts
+
+diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
+index 34551e4048..9bf9e7f61b 100644
+--- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
++++ b/blocksuite/affine/gfx/connector/src/connector-manager.ts
+@@ -2073,7 +2073,20 @@ export class ConnectorPathGenerator extends PathGenerator {
+     const id = connector[type].id;
+ 
+     if (id) {
+-      return this.options.getElementById(id) as Connectable;
++      const element = this.options.getElementById(id) as Connectable | null;
++      if (!element) return null;
++      if (
++        'hidden' in element &&
++        element.hidden &&
++        'collapseProxyId' in element &&
++        typeof element.collapseProxyId === 'string'
++      ) {
++        const proxy = this.options.getElementById(
++          element.collapseProxyId
++        ) as Connectable | null;
++        if (proxy) return proxy;
++      }
++      return element;
+     }
+ 
+     return null;
+diff --git a/blocksuite/affine/gfx/connector/src/connector-watcher.ts b/blocksuite/affine/gfx/connector/src/connector-watcher.ts
+index fa632c2cc3..5d73ea6c23 100644
+--- a/blocksuite/affine/gfx/connector/src/connector-watcher.ts
++++ b/blocksuite/affine/gfx/connector/src/connector-watcher.ts
+@@ -4,6 +4,7 @@ import {
+   surfaceMiddlewareExtension,
+ } from '@blocksuite/affine-block-surface';
+ import type { ConnectorElementModel } from '@blocksuite/affine-model';
++import { ShapeElementModel } from '@blocksuite/affine-model';
+ import type { GfxModel } from '@blocksuite/std/gfx';
+ 
+ import { ConnectorPathGenerator } from './connector-manager';
+@@ -101,8 +102,28 @@ export const connectorWatcher: SurfaceMiddleware = (
+     surface.elementUpdated.subscribe(({ id, props }) => {
+       const element = elementGetter(id);
+ 
+-      if (props['xywh'] || props['rotate']) {
+-        surface.getConnectors(id).forEach(c => addToUpdateList(c));
++      if (props['xywh'] || props['rotate'] || props['hidden']) {
++        surface.getConnectors(id).forEach(addToUpdateList);
++      }
++
++      if (props['collapseProxyId']) {
++        surface.getConnectors(id).forEach(addToUpdateList);
++      }
++
++      if (
++        props['xywh'] &&
++        element &&
++        element instanceof ShapeElementModel &&
++        element.collapsed
++      ) {
++        const shapes = surface.getElementsByType(
++          'shape'
++        ) as ShapeElementModel[];
++        shapes
++          .filter(shape => shape.collapseProxyId === element.id)
++          .forEach(shape => {
++            surface.getConnectors(shape.id).forEach(addToUpdateList);
++          });
+       }
+ 
+       if (
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
+index 29756ccb14..92d7527613 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
+@@ -36,6 +36,7 @@ import { diamond } from './diamond.js';
+ import { document as documentShape } from './document.js';
+ import { ellipse } from './ellipse.js';
+ import { hexagon } from './hexagon.js';
++import { mindmapBranch } from './mindmap-branch';
+ import { note } from './note.js';
+ import { parallelogram } from './parallelogram.js';
+ import { rect } from './rect.js';
+@@ -146,7 +147,7 @@ const shapeRenderers: Record<
+       horizontalContainer: rect,
+       list: rect,
+       mindmapCentralIdea: ellipse,
+-      mindmapBranch: rect,
++      mindmapBranch,
+       mindmapSubTopic: rect,
+       mindmapSquare: rect,
+       mindmapOrganization: rect,
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts
+new file mode 100644
+index 0000000000..b4391ae32b
+--- /dev/null
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts
+@@ -0,0 +1,72 @@
++import type {
++  CanvasRenderer,
++  RoughCanvas,
++} from '@blocksuite/affine-block-surface';
++import type {
++  LocalShapeElementModel,
++  ShapeElementModel,
++} from '@blocksuite/affine-model';
++
++import type { Colors } from './utils.js';
++
++export function mindmapBranch(
++  model: ShapeElementModel | LocalShapeElementModel,
++  ctx: CanvasRenderingContext2D,
++  matrix: DOMMatrix,
++  _renderer: CanvasRenderer,
++  rc: RoughCanvas,
++  colors: Colors
++) {
++  const { strokeStyle, strokeWidth, shapeStyle, rotate, flipX, flipY } = model;
++  const [, , w, h] = model.deserializedXYWH;
++  const renderOffset = Math.max(strokeWidth, 0) / 2;
++  const renderWidth = Math.max(w - renderOffset * 2, 0);
++  const renderHeight = Math.max(h - renderOffset * 2, 0);
++  const cx = renderWidth / 2;
++  const cy = renderHeight / 2;
++  const lineY = renderHeight / 2;
++
++  ctx.setTransform(
++    matrix
++      .translateSelf(renderOffset, renderOffset)
++      .translateSelf(cx, cy)
++      .scaleSelf(flipX ? -1 : 1, flipY ? -1 : 1)
++      .rotateSelf(rotate)
++      .translateSelf(-cx, -cy)
++  );
++
++  if (shapeStyle === 'General') {
++    ctx.beginPath();
++    ctx.moveTo(0, lineY);
++    ctx.lineTo(renderWidth, lineY);
++    ctx.closePath();
++    ctx.lineWidth = strokeWidth;
++    ctx.strokeStyle =
++      strokeStyle === 'none' ? 'transparent' : colors.strokeColor;
++    switch (strokeStyle) {
++      case 'dash':
++        ctx.setLineDash([12, 12]);
++        break;
++      case 'dot':
++        ctx.lineCap = 'round';
++        ctx.setLineDash([Math.max(1, strokeWidth), strokeWidth * 2.5]);
++        break;
++      default:
++        ctx.setLineDash([]);
++    }
++    ctx.stroke();
++  } else {
++    rc.line(0, lineY, renderWidth, lineY, {
++      stroke: strokeStyle === 'none' ? 'none' : colors.strokeColor,
++      strokeWidth,
++      roughness: model.roughness,
++      seed: model.seed,
++      strokeLineDash:
++        strokeStyle === 'dash'
++          ? [12, 12]
++          : strokeStyle === 'dot'
++            ? [Math.max(1, strokeWidth), strokeWidth * 2.5]
++            : undefined,
++    });
++  }
++}
+diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
+index 4bb9924f85..96f0a1a80c 100644
+--- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
++++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
+@@ -15,7 +15,7 @@ import type {
+   TextAlign,
+   TextVerticalAlign,
+ } from '@blocksuite/affine-model';
+-import { ShapeType } from '@blocksuite/affine-model';
++import { CONTAINER_TITLE_SIZE, ShapeType } from '@blocksuite/affine-model';
+ import { FeatureFlagService } from '@blocksuite/affine-shared/services';
+ import type { Bound, SerializedXYWH } from '@blocksuite/global/gfx';
+ import { deltaInsertsToChunks } from '@blocksuite/std/inline';
+@@ -70,12 +70,8 @@ export const resolveGradientFill = (
+     x1 * width,
+     y1 * height
+   );
+-  try {
+-    gradient.addColorStop(0, fillColor);
+-    gradient.addColorStop(1, gradientFinalColor);
+-  } catch {
+-    return fillColor;
+-  }
++  gradient.addColorStop(0, fillColor);
++  gradient.addColorStop(1, gradientFinalColor);
+   return gradient;
+ };
+ 
+@@ -132,12 +128,22 @@ export function drawGeneralShape(
+ 
+   switch (shapeModel.shapeType) {
+     case 'rect':
++    case 'container':
++    case 'verticalContainer':
++    case 'horizontalContainer':
++    case 'list':
++    case 'mindmapBranch':
++    case 'mindmapSubTopic':
++    case 'mindmapSquare':
++    case 'mindmapOrganization':
++    case 'mindmapDivision':
+       drawRect(ctx, 0, 0, w, h, shapeModel.radius ?? 0);
+       break;
+     case 'diamond':
+       drawDiamond(ctx, 0, 0, w, h);
+       break;
+     case 'ellipse':
++    case 'mindmapCentralIdea':
+       drawEllipse(ctx, 0, 0, w, h);
+       break;
+     case 'triangle':
+@@ -243,6 +249,26 @@ export function drawGeneralShape(
+ 
+   ctx.fill();
+   ctx.stroke();
++
++  if (shapeModel.shapeType === ShapeType.VerticalContainer) {
++    const titleHeight = Math.min(CONTAINER_TITLE_SIZE, h);
++    if (h > titleHeight + 1) {
++      ctx.beginPath();
++      ctx.moveTo(0, titleHeight);
++      ctx.lineTo(w, titleHeight);
++      ctx.stroke();
++    }
++  }
++
++  if (shapeModel.shapeType === ShapeType.HorizontalContainer) {
++    const titleWidth = Math.min(CONTAINER_TITLE_SIZE, w);
++    if (w > titleWidth + 1) {
++      ctx.beginPath();
++      ctx.moveTo(titleWidth, 0);
++      ctx.lineTo(titleWidth, h);
++      ctx.stroke();
++    }
++  }
+ }
+ 
+ function drawRect(
+diff --git a/blocksuite/affine/gfx/shape/src/element-view.ts b/blocksuite/affine/gfx/shape/src/element-view.ts
+index ade802b961..f8fb511ae4 100644
+--- a/blocksuite/affine/gfx/shape/src/element-view.ts
++++ b/blocksuite/affine/gfx/shape/src/element-view.ts
+@@ -1,19 +1,88 @@
+-import { ShapeElementModel } from '@blocksuite/affine-model';
++import {
++  COLLAPSIBLE_CONTAINER_SHAPES,
++  CONNECTOR_TREE_SHAPES,
++  ConnectorElementModel,
++  CONTAINER_TITLE_SIZE,
++  DefaultTheme,
++  FontFamily,
++  FontWeight,
++  LocalShapeElementModel,
++  ShapeElementModel,
++  ShapeStyle,
++  ShapeType,
++  TextAlign,
++  TextVerticalAlign,
++} from '@blocksuite/affine-model';
++import { Bound } from '@blocksuite/global/gfx';
++import type { PointerEventState } from '@blocksuite/std';
+ import {
+   GfxElementModelView,
++  type GfxModel,
+   GfxViewInteractionExtension,
+ } from '@blocksuite/std/gfx';
+ 
+ import { normalizeShapeBound } from './element-renderer';
+ import { mountShapeTextEditor } from './text/edgeless-shape-text-editor';
+ 
++const COLLAPSE_BUTTON_SIZE = 22;
++const COLLAPSE_BUTTON_PADDING = 10;
++
++const isContainerShape = (model: ShapeElementModel) =>
++  COLLAPSIBLE_CONTAINER_SHAPES.has(model.shapeType);
++
++const isConnectorTreeShape = (model: ShapeElementModel) =>
++  CONNECTOR_TREE_SHAPES.has(model.shapeType);
++
++const canCollapse = (model: ShapeElementModel) =>
++  isContainerShape(model) || isConnectorTreeShape(model);
++
++const getDefaultCollapsedSize = (model: ShapeElementModel) => {
++  const width = Math.max(model.w, 1);
++  const height = Math.max(model.h, 1);
++
++  switch (model.shapeType) {
++    case ShapeType.Container:
++      return [Math.min(80, width), Math.min(80, height)] as [number, number];
++    case ShapeType.VerticalContainer:
++      return [width, Math.min(CONTAINER_TITLE_SIZE, height)] as [
++        number,
++        number,
++      ];
++    case ShapeType.HorizontalContainer:
++      return [Math.min(CONTAINER_TITLE_SIZE, width), height] as [
++        number,
++        number,
++      ];
++    case ShapeType.List:
++      return [width, Math.min(36, height)] as [number, number];
++    default:
++      return [width, height] as [number, number];
++  }
++};
++
++const getElementById = (
++  view: GfxElementModelView<ShapeElementModel>,
++  id: string
++) =>
++  (view.surface.getElementById(id) ??
++    (view.surface.store.getModelById(id) as GfxModel | null)) ||
++  null;
++
+ export class ShapeElementView extends GfxElementModelView<ShapeElementModel> {
+   static override type: string = 'shape';
+ 
++  private _collapseButton: LocalShapeElementModel | null = null;
++
+   override onCreated(): void {
+     super.onCreated();
+ 
+     this._initDblClickToEdit();
++    this._initCollapseButton();
++  }
++
++  override onDestroyed(): void {
++    super.onDestroyed();
++    this._removeCollapseButton();
+   }
+ 
+   private _initDblClickToEdit(): void {
+@@ -29,16 +98,373 @@ export class ShapeElementView extends GfxElementModelView<ShapeElementModel> {
+       }
+     });
+   }
++
++  private _removeCollapseButton() {
++    if (!this._collapseButton) return;
++    this.surface.deleteLocalElement(this._collapseButton);
++    this._collapseButton = null;
++  }
++
++  private _initCollapseButton(): void {
++    if (!canCollapse(this.model)) return;
++
++    this._collapseButton = new LocalShapeElementModel(this.model.surface);
++    this._collapseButton.id = `collapse-btn-${this.model.id}`;
++    this._collapseButton.groupId = this.model.id;
++    this._collapseButton.responseExtension = [12, 12];
++    this.surface.addLocalElement(this._collapseButton);
++
++    const isOnElementBound = (evt: PointerEventState) => {
++      if (!this._collapseButton) return false;
++      const [x, y] = this.gfx.viewport.toModelCoord(evt.x, evt.y);
++      const buttonBound = this._getCollapseButtonBound();
++      const padding = isContainerShape(this.model) ? 8 : 4;
++      const hitBound = new Bound(
++        buttonBound.x - padding,
++        buttonBound.y - padding,
++        buttonBound.w + padding * 2,
++        buttonBound.h + padding * 2
++      );
++      return hitBound.containsPoint([x, y]);
++    };
++    const buttonView = this.gfx.view.get(
++      this._collapseButton.id
++    ) as GfxElementModelView<LocalShapeElementModel> | null;
++
++    const handlePointerDown = (evt: PointerEventState) => {
++      if (!isOnElementBound(evt)) return;
++      evt.raw.preventDefault();
++      evt.raw.stopPropagation();
++      this._toggleCollapse();
++    };
++
++    buttonView?.on('pointerenter', () => {
++      this.gfx.cursor$.value = 'pointer';
++    });
++    buttonView?.on('pointerleave', () => {
++      this.gfx.cursor$.value = 'default';
++    });
++    buttonView?.on('pointerdown', handlePointerDown);
++    this.on('pointerdown', handlePointerDown);
++
++    this.disposable.add(
++      this.model.propsUpdated.subscribe(({ key }) => {
++        if (
++          key === 'xywh' ||
++          key === 'shapeType' ||
++          key === 'collapsed' ||
++          key === 'hidden' ||
++          key === 'opacity'
++        ) {
++          this._updateCollapseButton();
++        }
++      })
++    );
++
++    this._updateCollapseButton();
++    this._applyInitialCollapse();
++  }
++
++  private _applyInitialCollapse() {
++    if (!this.model.collapsed) return;
++    if (isContainerShape(this.model)) {
++      const bound = this.model.elementBound;
++      const expandedSize =
++        this.model.expandedSize ?? ([bound.w, bound.h] as [number, number]);
++      this.model.expandedSize = expandedSize;
++      const collapsedSize =
++        this.model.collapsedSize ?? getDefaultCollapsedSize(this.model);
++      this.model.collapsedSize = collapsedSize;
++      if (bound.w !== collapsedSize[0] || bound.h !== collapsedSize[1]) {
++        this.model.xywh = new Bound(
++          bound.x,
++          bound.y,
++          collapsedSize[0],
++          collapsedSize[1]
++        ).serialize();
++      }
++      this._hideContainedElements(
++        new Bound(bound.x, bound.y, expandedSize[0], expandedSize[1])
++      );
++      return;
++    }
++
++    if (isConnectorTreeShape(this.model)) {
++      this._hideConnectorDescendants(this.model.id);
++    }
++  }
++
++  private _updateCollapseButton(): void {
++    if (!this._collapseButton) return;
++    if (!canCollapse(this.model)) {
++      this._removeCollapseButton();
++      return;
++    }
++
++    const buttonBound = this._getCollapseButtonBound();
++
++    this._collapseButton.xywh = buttonBound.serialize();
++    this._collapseButton.shapeType = ShapeType.Rect;
++    this._collapseButton.radius = 2;
++    this._collapseButton.filled = true;
++    this._collapseButton.fillColor = DefaultTheme.StrokeColorShortMap.Grey;
++    this._collapseButton.strokeColor = DefaultTheme.pureBlack;
++    this._collapseButton.strokeWidth = 1.5;
++    this._collapseButton.shapeStyle = ShapeStyle.General;
++    this._collapseButton.text = this.model.collapsed ? '+' : '-';
++    this._collapseButton.color = DefaultTheme.pureBlack;
++    this._collapseButton.padding = [0, 0];
++    this._collapseButton.textAlign = TextAlign.Center;
++    this._collapseButton.textVerticalAlign = TextVerticalAlign.Center;
++    this._collapseButton.fontFamily = FontFamily.Inter;
++    this._collapseButton.fontWeight = FontWeight.SemiBold;
++    this._collapseButton.fontSize = 11;
++    this._collapseButton.hidden = this.model.hidden;
++    this._collapseButton.opacity = this.model.opacity ?? 1;
++  }
++
++  private _getCollapseButtonBound(): Bound {
++    const bound = this.model.elementBound;
++    return new Bound(
++      bound.x + COLLAPSE_BUTTON_PADDING,
++      bound.y + COLLAPSE_BUTTON_PADDING,
++      COLLAPSE_BUTTON_SIZE,
++      COLLAPSE_BUTTON_SIZE
++    );
++  }
++
++  private _toggleCollapse(): void {
++    if (isContainerShape(this.model)) {
++      this._toggleContainerCollapse();
++      return;
++    }
++    if (isConnectorTreeShape(this.model)) {
++      this._toggleConnectorCollapse();
++    }
++  }
++
++  private _toggleContainerCollapse(): void {
++    const bound = this.model.elementBound;
++    const willCollapse = !this.model.collapsed;
++    const expandedSize =
++      this.model.expandedSize ?? ([bound.w, bound.h] as [number, number]);
++
++    console.debug('[collapse] toggle container', {
++      id: this.model.id,
++      shapeType: this.model.shapeType,
++      willCollapse,
++      bound: { x: bound.x, y: bound.y, w: bound.w, h: bound.h },
++      expandedSize,
++      collapsedSize: this.model.collapsedSize,
++    });
++
++    if (willCollapse) {
++      this.model.expandedSize = expandedSize;
++      const collapsedSize =
++        this.model.collapsedSize ?? getDefaultCollapsedSize(this.model);
++      this.model.collapsedSize = collapsedSize;
++      this.model.xywh = new Bound(
++        bound.x,
++        bound.y,
++        collapsedSize[0],
++        collapsedSize[1]
++      ).serialize();
++      this._hideContainedElements(
++        new Bound(bound.x, bound.y, bound.w, bound.h)
++      );
++      this.model.collapsed = true;
++      return;
++    }
++
++    this.model.xywh = new Bound(
++      bound.x,
++      bound.y,
++      expandedSize[0],
++      expandedSize[1]
++    ).serialize();
++    this._showContainedElements(
++      new Bound(bound.x, bound.y, expandedSize[0], expandedSize[1])
++    );
++    this.model.collapsed = false;
++  }
++
++  private _toggleConnectorCollapse(): void {
++    const willCollapse = !this.model.collapsed;
++    if (willCollapse) {
++      this._hideConnectorDescendants(this.model.id);
++      this.model.collapsed = true;
++    } else {
++      this._showConnectorDescendants(this.model.id);
++      this.model.collapsed = false;
++    }
++  }
++
++  private _getContainedElements(bound: Bound) {
++    return this.gfx
++      .getElementsByBound(bound, { type: 'canvas' })
++      .filter(el =>
++        !(el instanceof ConnectorElementModel) &&
++        el instanceof ShapeElementModel
++          ? el.id !== this.model.id && bound.contains(el.elementBound)
++          : bound.contains(el.elementBound)
++      );
++  }
++
++  private _hideContainedElements(bound: Bound) {
++    const elements = this._getContainedElements(bound);
++    console.debug('[collapse] hide contained', {
++      id: this.model.id,
++      bound: { x: bound.x, y: bound.y, w: bound.w, h: bound.h },
++      elements: elements.map(el => el.id),
++    });
++    elements.forEach(el => {
++      if ('hidden' in el) {
++        el.hidden = true;
++      }
++      if (el instanceof ShapeElementModel) {
++        el.collapseProxyId = this.model.id;
++      }
++    });
++  }
++
++  private _showContainedElements(bound: Bound) {
++    const elements = this._getContainedElements(bound);
++    const proxiedShapes = (
++      this.surface.getElementsByType('shape') as ShapeElementModel[]
++    ).filter(shape => shape.collapseProxyId === this.model.id);
++    const surface = this.surface as unknown as {
++      getConnectors: (id: string) => ConnectorElementModel[];
++    };
++    console.debug('[collapse] show contained', {
++      id: this.model.id,
++      bound: { x: bound.x, y: bound.y, w: bound.w, h: bound.h },
++      elements: elements.map(el => el.id),
++      proxied: proxiedShapes.map(shape => shape.id),
++    });
++    elements.forEach(el => {
++      if ('hidden' in el) {
++        el.hidden = false;
++      }
++      if (el instanceof ShapeElementModel) {
++        el.collapseProxyId = null;
++      }
++    });
++    proxiedShapes.forEach(shape => {
++      if (elements.includes(shape)) return;
++      shape.hidden = false;
++      shape.collapseProxyId = null;
++    });
++
++    const affectedIds = new Set<string>();
++    elements.forEach(el => {
++      if (el instanceof ShapeElementModel) affectedIds.add(el.id);
++    });
++    proxiedShapes.forEach(shape => affectedIds.add(shape.id));
++
++    const connectors = new Set<ConnectorElementModel>();
++    affectedIds.forEach(id => {
++      surface.getConnectors(id).forEach(connector => connectors.add(connector));
++    });
++
++    connectors.forEach(connector => {
++      if (!connector.hidden) return;
++      connector.hidden = false;
++    });
++  }
++
++  private _hideConnectorDescendants(rootId: string) {
++    const visited = new Set<string>();
++    const surface = this.surface as unknown as {
++      getConnectors: (id: string) => ConnectorElementModel[];
++    };
++    const traverse = (id: string) => {
++      if (visited.has(id)) return;
++      visited.add(id);
++      const connectors = surface.getConnectors(id);
++      connectors.forEach((connector: ConnectorElementModel) => {
++        if (connector.source.id !== id || !connector.target.id) return;
++        if (connector.target.id === rootId) return;
++        const target = getElementById(this, connector.target.id);
++        if (!target) return;
++        connector.hidden = true;
++        if ('hidden' in target) target.hidden = true;
++        traverse(target.id);
++      });
++    };
++    traverse(rootId);
++  }
++
++  private _showConnectorDescendants(rootId: string) {
++    const visited = new Set<string>();
++    const surface = this.surface as unknown as {
++      getConnectors: (id: string) => ConnectorElementModel[];
++    };
++    const queue: Array<{ id: string; blocked: boolean }> = [
++      { id: rootId, blocked: false },
++    ];
++
++    while (queue.length > 0) {
++      const current = queue.shift();
++      if (!current || visited.has(current.id)) continue;
++      visited.add(current.id);
++      const connectors = surface.getConnectors(current.id);
++      connectors.forEach((connector: ConnectorElementModel) => {
++        if (connector.source.id !== current.id || !connector.target.id) return;
++        if (connector.target.id === rootId) return;
++        const target = getElementById(this, connector.target.id);
++        if (!target) return;
++        const shouldHide = current.blocked;
++        connector.hidden = shouldHide;
++        if ('hidden' in target) {
++          const hasProxy =
++            target instanceof ShapeElementModel && target.collapseProxyId;
++          if (!shouldHide && hasProxy) {
++            return;
++          }
++          target.hidden = shouldHide;
++        }
++        const isCollapsedChild =
++          target instanceof ShapeElementModel &&
++          isConnectorTreeShape(target) &&
++          target.collapsed;
++        queue.push({
++          id: target.id,
++          blocked: shouldHide || isCollapsedChild,
++        });
++      });
++    }
++  }
+ }
+ 
+ export const ShapeViewInteraction =
+   GfxViewInteractionExtension<ShapeElementView>(ShapeElementView.type, {
+     handleResize: () => {
+       return {
++        beforeResize({ elements, set }) {
++          const shouldLockRatio = elements.some(element => {
++            if (!(element instanceof ShapeElementView)) return false;
++            return Boolean(element.model.lockAspectRatio);
++          });
++
++          if (shouldLockRatio) {
++            set({ lockRatio: true });
++          }
++        },
+         onResizeMove({ newBound, model }) {
+           const normalizedBound = normalizeShapeBound(model, newBound);
+ 
+           model.xywh = normalizedBound.serialize();
++          if (model instanceof ShapeElementModel && isContainerShape(model)) {
++            const size: [number, number] = [
++              normalizedBound.w,
++              normalizedBound.h,
++            ];
++            if (model.collapsed) {
++              model.collapsedSize = size;
++            } else {
++              model.expandedSize = size;
++            }
++          }
+         },
+       };
+     },
+diff --git a/blocksuite/affine/gfx/shape/src/shape-tool.ts b/blocksuite/affine/gfx/shape/src/shape-tool.ts
+index 748d04102d..37c702b8d7 100644
+--- a/blocksuite/affine/gfx/shape/src/shape-tool.ts
++++ b/blocksuite/affine/gfx/shape/src/shape-tool.ts
+@@ -8,7 +8,6 @@ import type { ShapeElementModel, ShapeName } from '@blocksuite/affine-model';
+ import {
+   COLLAPSIBLE_CONTAINER_SHAPES,
+   DefaultTheme,
+-  getShapeRadius,
+   getShapeType,
+   ShapeType,
+   TextVerticalAlign,
+@@ -112,8 +111,6 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+       type: CanvasElementType.SHAPE,
+       shapeType,
+       xywh: bound.serialize(),
+-      flipX: false,
+-      flipY: false,
+       radius: isMindmapSubTopic ? 0.5 : attributes.radius,
+       stencilName,
+       filled: isMindmapBranch
+@@ -308,22 +305,6 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+     this.clearOverlay();
+   }
+ 
+-  private _getShapeAttributes(shapeName: ShapeName) {
+-    const propsStore = this.std.get(EditPropsStore);
+-    const rectProps = propsStore.lastProps$.value['shape:rect'];
+-    return {
+-      radius: getShapeRadius(shapeName),
+-      filled: rectProps?.filled ?? true,
+-      strokeColor: rectProps?.strokeColor ?? DefaultTheme.shapeStrokeColor,
+-      fillColor: rectProps?.fillColor ?? DefaultTheme.shapeFillColor,
+-      strokeStyle: rectProps?.strokeStyle ?? 'solid',
+-      strokeWidth: rectProps?.strokeWidth ?? 4,
+-      gradientFinal: rectProps?.gradientFinal,
+-      gradientDirection: rectProps?.gradientDirection,
+-      shapeStyle: rectProps?.shapeStyle,
+-      roughness: rectProps?.roughness,
+-    };
+-  }
+   override dragEnd() {
+     if (this._disableOverlay) return;
+     if (this._draggingElement) {
+diff --git a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
+index 68f42d37ec..42871fb537 100644
+--- a/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
++++ b/blocksuite/affine/gfx/shape/src/toolbar/shape-menu-config.ts
+@@ -27,6 +27,7 @@ import {
+   ArrowUpIcon,
+   CalloutIcon,
+   CloudIcon,
++  ContainerIcon,
+   CubeIcon,
+   CylinderIcon,
+   DataStorageIcon,
+@@ -60,9 +61,14 @@ import {
+   FlowchartSummingFunctionIcon,
+   FlowchartTerminatorIcon,
+   HexagonIcon,
++  HorizontalContainerIcon,
+   InternalStorageIcon,
+   LogicAndIcon,
+   LogicOrIcon,
++  MindmapBranchIcon,
++  MindmapCentralIdeaIcon,
++  MindmapSquareIcon,
++  MindmapSubTopicIcon,
+   NoteIcon,
+   ParallelogramIcon,
+   RectIcon,
+@@ -74,6 +80,7 @@ import {
+   TapeIcon,
+   TrapezoidIcon,
+   TriangleRightIcon,
++  VerticalContainerIcon,
+ } from './icons';
+ 
+ type Config = {
+@@ -544,6 +551,55 @@ export const ExtendedShapeConfig: Config[] = [
+     tooltip: 'Callout quad arrow',
+     disabled: false,
+   },
++  {
++    name: ShapeType.MindmapCentralIdea,
++    generalIcon: MindmapCentralIdeaIcon,
++    scribbledIcon: MindmapCentralIdeaIcon,
++    tooltip: 'Mindmap central idea',
++    disabled: false,
++  },
++  {
++    name: ShapeType.MindmapBranch,
++    generalIcon: MindmapBranchIcon,
++    scribbledIcon: MindmapBranchIcon,
++    tooltip: 'Mindmap branch',
++    disabled: false,
++  },
++  {
++    name: ShapeType.MindmapSubTopic,
++    generalIcon: MindmapSubTopicIcon,
++    scribbledIcon: MindmapSubTopicIcon,
++    tooltip: 'Mindmap sub topic',
++    disabled: false,
++  },
++  {
++    name: ShapeType.MindmapSquare,
++    generalIcon: MindmapSquareIcon,
++    scribbledIcon: MindmapSquareIcon,
++    tooltip: 'Mindmap square',
++    disabled: false,
++  },
++  {
++    name: ShapeType.Container,
++    generalIcon: ContainerIcon,
++    scribbledIcon: ContainerIcon,
++    tooltip: 'Container',
++    disabled: false,
++  },
++  {
++    name: ShapeType.VerticalContainer,
++    generalIcon: VerticalContainerIcon,
++    scribbledIcon: VerticalContainerIcon,
++    tooltip: 'Vertical container',
++    disabled: false,
++  },
++  {
++    name: ShapeType.HorizontalContainer,
++    generalIcon: HorizontalContainerIcon,
++    scribbledIcon: HorizontalContainerIcon,
++    tooltip: 'Horizontal container',
++    disabled: false,
++  },
+ ];
+ 
+ // All shapes combined (for shape browser)
+diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
+index 0138f86ea7..9a2566d1fe 100644
+--- a/blocksuite/affine/model/src/elements/shape/shape.ts
++++ b/blocksuite/affine/model/src/elements/shape/shape.ts
+@@ -56,6 +56,7 @@ export type ShapeProps = BaseElementProps & {
+   collapsedSize?: [number, number];
+   expandedSize?: [number, number];
+   collapseProxyId?: string | null;
++  mindmapNextPaletteIndex?: number;
+ 
+   text?: Y.Text;
+   textHorizontalAlign?: TextAlign;
+@@ -233,6 +234,9 @@ export class ShapeElementModel extends GfxPrimitiveElementModel<ShapeProps> {
+   @field()
+   accessor collapseProxyId: string | null = null;
+ 
++  @field()
++  accessor mindmapNextPaletteIndex: number | undefined = undefined;
++
+   @field(TextAlign.Center as TextAlign)
+   accessor textHorizontalAlign!: TextAlign;
+ 
+diff --git a/blocksuite/affine/shared/src/services/editor-setting-service.ts b/blocksuite/affine/shared/src/services/editor-setting-service.ts
+index 5457f5a402..8111b8c674 100644
+--- a/blocksuite/affine/shared/src/services/editor-setting-service.ts
++++ b/blocksuite/affine/shared/src/services/editor-setting-service.ts
+@@ -13,6 +13,22 @@ export const GeneralSettingSchema = z
+     edgelessLibraryShapesVisibility: z
+       .enum(['disable', 'searchable', 'show'])
+       .default('show'),
++    edgelessMindmapNextColor: z
++      .enum([
++        'disable',
++        '1',
++        '2',
++        '3',
++        '4',
++        '5',
++        '6',
++        '7',
++        '8',
++        '9',
++        '10',
++        '11',
++      ])
++      .default('disable'),
+     docCanvasPreferView: z
+       .enum(['affine:embed-linked-doc', 'affine:embed-synced-doc'])
+       .default('affine:embed-synced-doc'),
+diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
+index 3dc7ae3592..7b76305a04 100644
+--- a/blocksuite/affine/shared/src/utils/zod-schema.ts
++++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
+@@ -168,6 +168,7 @@ const ShapeObject = {
+   collapsedSize: z.tuple([z.number(), z.number()]).optional(),
+   expandedSize: z.tuple([z.number(), z.number()]).optional(),
+   collapseProxyId: z.string().nullable().optional(),
++  mindmapNextPaletteIndex: z.number().int().nonnegative().optional(),
+ };
+ 
+ export const ShapeSchema = z.object(ShapeObject).default(DEFAULT_SHAPE);
+diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
+index e6abb5b83c..bb47ff3f6f 100644
+--- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
++++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
+@@ -20,6 +20,7 @@ import type {
+   ShapeType,
+ } from '@blocksuite/affine-model';
+ import {
++  CONNECTOR_TREE_SHAPES,
+   ConnectorMode,
+   DEFAULT_NOTE_HEIGHT,
+   DefaultTheme,
+@@ -36,7 +37,7 @@ import type { SelectedRect } from '@blocksuite/affine-shared/types';
+ import { handleNativeRangeAtPoint } from '@blocksuite/affine-shared/utils';
+ import { DisposableGroup } from '@blocksuite/global/disposable';
+ import type { Bound, IVec } from '@blocksuite/global/gfx';
+-import { PointLocation, Vec } from '@blocksuite/global/gfx';
++import { Vec } from '@blocksuite/global/gfx';
+ import { WithDisposable } from '@blocksuite/global/lit';
+ import {
+   ArrowUpBigIcon,
+@@ -58,6 +59,7 @@ import { styleMap } from 'lit/directives/style-map.js';
+ 
+ import { EdgelessAutoCompletePanel } from './auto-complete-panel.js';
+ import { EdgelessFlowchartShapePanel } from './flowchart-shape-panel.js';
++import { EdgelessMindmapShapePanel } from './mindmap-shape-panel.js';
+ import {
+   createEdgelessElement,
+   Direction,
+@@ -222,11 +224,10 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+         if (!this.canShowAutoComplete) return;
+         this._isMoving = true;
+         const { startPosition } = getPosition(type);
+-        const sourcePosition = this._mapPositionByFlip(startPosition, this.current);
+         connector = this._addConnector(
+           {
+             id: this.current.id,
+-            position: sourcePosition,
++            position: this._mapPositionByFlip(startPosition, this.current),
+           },
+           {
+             position: point,
+@@ -273,10 +274,18 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     return String(element.shapeType).startsWith('flowchart');
+   }
+ 
++  private _isMindmapShape(element: ShapeElementModel) {
++    return CONNECTOR_TREE_SHAPES.has(element.shapeType);
++  }
++
+   private _removeFlowchartPanel() {
+     this.edgeless?.querySelector('edgeless-flowchart-shape-panel')?.remove();
+   }
+ 
++  private _removeMindmapPanel() {
++    this.edgeless?.querySelector('edgeless-mindmap-shape-panel')?.remove();
++  }
++
+   private _openFlowchartPanel(direction: Direction) {
+     if (!(this.current instanceof ShapeElementModel)) return;
+     this._removeFlowchartPanel();
+@@ -287,6 +296,16 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     this.edgeless.append(panel);
+   }
+ 
++  private _openMindmapPanel(direction: Direction) {
++    if (!(this.current instanceof ShapeElementModel)) return;
++    this._removeMindmapPanel();
++    const panel = new EdgelessMindmapShapePanel();
++    panel.edgeless = this.edgeless;
++    panel.current = this.current;
++    panel.direction = direction;
++    this.edgeless.append(panel);
++  }
++
+   get canShowAutoComplete() {
+     const { current } = this;
+     return isShape(current) || isNoteBlock(current);
+@@ -357,15 +376,9 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+   ) {
+     const startBound = this.current.elementBound;
+     const { startPosition, endPosition } = getPosition(type);
+-    const startConnectionPosition = this._mapPositionByFlip(
+-      startPosition,
+-      curShape
+-    );
+     const nextShape = {
+       xywh: nextBound.serialize(),
+       rotate: curShape.rotate,
+-      flipX: curShape.flipX,
+-      flipY: curShape.flipY,
+       shapeType: curShape.shapeType,
+       getLineIntersections(start: IVec, end: IVec) {
+         return shapeMethods[this.shapeType].getLineIntersections(
+@@ -380,14 +393,14 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+           this
+         );
+       },
+-    } as ShapeElementModel;
+-    const endConnectionPosition = this._mapPositionByFlip(endPosition, nextShape);
+-    const startPoint = PointLocation.fromVec(
+-      startBound.getRelativePoint(startConnectionPosition)
+-    );
+-    const endPoint = PointLocation.fromVec(
+-      nextBound.getRelativePoint(endConnectionPosition)
+-    );
++      } as ShapeElementModel;
++      const endConnectionPosition = this._mapPositionByFlip(endPosition, nextShape);
++      const startPoint = PointLocation.fromVec(
++        startBound.getRelativePoint(startConnectionPosition)
++      );
++      const endPoint = PointLocation.fromVec(
++        nextBound.getRelativePoint(endConnectionPosition)
++      );
+ 
+     return this._pathGenerator.generateOrthogonalConnectorPath({
+       startBound,
+@@ -397,16 +410,6 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     });
+   }
+ 
+-  private _mapPositionByFlip(
+-    position: Connection['position'],
+-    shape: { flipX?: boolean; flipY?: boolean }
+-  ): Connection['position'] {
+-    return [
+-      shape.flipX ? 1 - position[0] : position[0],
+-      shape.flipY ? 1 - position[1] : position[1],
+-    ];
+-  }
+-
+   private _computeNextBound(type: Direction) {
+     if (isShape(this.current)) {
+       const connectedShapes = this._getConnectedElements(this.current).filter(
+@@ -463,17 +466,17 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     if (!id) return;
+     if (isShape(this.current)) {
+       const { startPosition, endPosition } = getPosition(type);
+-      const sourcePosition = this._mapPositionByFlip(startPosition, this.current);
+-      const targetShape = this.crud.getElementById(id) as ShapeElementModel;
+-      const targetPosition = this._mapPositionByFlip(endPosition, targetShape);
+       this._addConnector(
+         {
+           id: this.current.id,
+-          position: sourcePosition,
++          position: this._mapPositionByFlip(startPosition, this.current),
+         },
+         {
+           id,
+-          position: targetPosition,
++          position: this._mapPositionByFlip(
++            endPosition,
++            this.crud.getElementById(id) as ShapeElementModel
++          ),
+         }
+       );
+ 
+@@ -806,6 +809,65 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     });
+   }
+ 
++  private _renderMindmapShapeButtons() {
++    const { selectedRect } = this;
++    const { zoom } = this.gfx.viewport;
++    const size = 26;
++    const buttonMargin = size / 2 + 6;
++    const verticalMargin = size / 2 + 6;
++    const directions = [
++      Direction.Right,
++      Direction.Bottom,
++      Direction.Left,
++      Direction.Top,
++    ];
++
++    return directions.map(type => {
++      let transform = '';
++      const icon = PlusIcon({ width: '16px', height: '16px' });
++
++      switch (type) {
++        case Direction.Top:
++          transform += `translate(${selectedRect.width / 2}px, ${-verticalMargin}px)`;
++          break;
++        case Direction.Right:
++          transform += `translate(${selectedRect.width + buttonMargin}px, ${selectedRect.height / 2}px)`;
++          break;
++        case Direction.Bottom:
++          transform += `translate(${selectedRect.width / 2}px, ${selectedRect.height + verticalMargin}px)`;
++          break;
++        case Direction.Left:
++          transform += `translate(${-buttonMargin}px, ${selectedRect.height / 2}px)`;
++          break;
++      }
++
++      transform += `translate(${-size / 2}px, ${-size / 2}px)`;
++
++      const arrowWrapperClasses = classMap({
++        'edgeless-auto-complete-arrow-wrapper': true,
++        hidden: type === Direction.Left && zoom >= 1.5,
++        mindmap: true,
++      });
++
++      return html`<div
++        class=${arrowWrapperClasses}
++        style=${styleMap({
++          transform,
++          transformOrigin: 'left top',
++        })}
++      >
++        <div
++          class="edgeless-auto-complete-arrow"
++          @pointerdown=${() => {
++            this._openMindmapPanel(type);
++          }}
++        >
++          ${icon}
++        </div>
++      </div>`;
++    });
++  }
++
+   private _showNextShape(
+     current: ShapeElementModel,
+     bound: Bound,
+@@ -843,6 +905,7 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+         this._autoCompleteOverlay.linePoints = [];
+         this._autoCompleteOverlay.renderShape = null;
+         this._removeFlowchartPanel();
++        this._removeMindmapPanel();
+       })
+     );
+ 
+@@ -902,6 +965,8 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+ 
+     const isShape = this.current instanceof ShapeElementModel;
+     const isMindMap = this.current.group instanceof MindmapElementModel;
++    const isMindmapShape =
++      isShape && this._isMindmapShape(this.current as ShapeElementModel);
+     const isFlowchart =
+       isShape && this._isFlowchartShape(this.current as ShapeElementModel);
+ 
+@@ -926,9 +991,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+     >
+       ${isMindMap
+         ? this._renderMindMapButtons()
+-        : isFlowchart
+-          ? this._renderFlowchartButtons()
+-          : this._renderArrow()}
++        : isMindmapShape
++          ? this._renderMindmapShapeButtons()
++          : isFlowchart
++            ? this._renderFlowchartButtons()
++            : this._renderArrow()}
+     </div>`;
+   }
+ 
+diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts
+index 089ec9b021..a4d694b432 100644
+--- a/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts
++++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/effects.ts
+@@ -5,6 +5,7 @@ import {
+   EdgelessSelectedRectWidget,
+ } from './edgeless-selected-rect';
+ import { EdgelessFlowchartShapePanel } from './flowchart-shape-panel';
++import { EdgelessMindmapShapePanel } from './mindmap-shape-panel';
+ 
+ export function effects() {
+   customElements.define(
+@@ -15,6 +16,10 @@ export function effects() {
+     'edgeless-flowchart-shape-panel',
+     EdgelessFlowchartShapePanel
+   );
++  customElements.define(
++    'edgeless-mindmap-shape-panel',
++    EdgelessMindmapShapePanel
++  );
+   customElements.define('edgeless-auto-complete', EdgelessAutoComplete);
+   customElements.define(
+     EDGELESS_SELECTED_RECT_WIDGET,
+diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts
+new file mode 100644
+index 0000000000..018fd3e47c
+--- /dev/null
++++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts
+@@ -0,0 +1,381 @@
++import {
++  CanvasElementType,
++  EdgelessCRUDIdentifier,
++  getSurfaceBlock,
++} from '@blocksuite/affine-block-surface';
++import {
++  getShapePaletteDataFrom,
++  getToolPaletteMemory,
++  MindmapBranchIcon,
++  MindmapCentralIdeaIcon,
++  MindmapSquareIcon,
++  MindmapSubTopicIcon,
++  mountShapeTextEditor,
++  readStoredShapePalettes,
++  shapePaletteKeys,
++  shapePalettes,
++} from '@blocksuite/affine-gfx-shape';
++import {
++  ConnectorMode,
++  getShapeRadius,
++  getShapeType,
++  isTransparent,
++  type ShapeElementModel,
++  type ShapeName,
++  ShapeType,
++} from '@blocksuite/affine-model';
++import {
++  EditorSettingProvider,
++  EditPropsStore,
++} from '@blocksuite/affine-shared/services';
++import { stopPropagation } from '@blocksuite/affine-shared/utils';
++import { clamp } from '@blocksuite/global/gfx';
++import { WithDisposable } from '@blocksuite/global/lit';
++import type { BlockComponent } from '@blocksuite/std';
++import { GfxControllerIdentifier } from '@blocksuite/std/gfx';
++import { css, html, LitElement, nothing } from 'lit';
++import { property } from 'lit/decorators.js';
++import { repeat } from 'lit/directives/repeat.js';
++import { styleMap } from 'lit/directives/style-map.js';
++
++import {
++  createEdgelessElement,
++  Direction,
++  getPosition,
++  getShapeMenuLayout,
++  nextBound,
++  SHAPE_MENU_ITEM_GAP,
++  SHAPE_MENU_ITEM_HEIGHT,
++  SHAPE_MENU_ITEM_WIDTH,
++  SHAPE_MENU_PANEL_PADDING,
++} from './utils.js';
++
++const MINDMAP_SHAPES: Array<{
++  name: ShapeName;
++  icon: unknown;
++}> = [
++  {
++    name: ShapeType.MindmapCentralIdea,
++    icon: MindmapCentralIdeaIcon,
++  },
++  {
++    name: ShapeType.MindmapBranch,
++    icon: MindmapBranchIcon,
++  },
++  {
++    name: ShapeType.MindmapSubTopic,
++    icon: MindmapSubTopicIcon,
++  },
++  {
++    name: ShapeType.MindmapSquare,
++    icon: MindmapSquareIcon,
++  },
++];
++
++const PANEL_MARGIN = 12;
++
++export class EdgelessMindmapShapePanel extends WithDisposable(LitElement) {
++  static override styles = css`
++    .mindmap-panel {
++      position: absolute;
++      display: grid;
++      gap: ${SHAPE_MENU_ITEM_GAP}px;
++      padding: ${SHAPE_MENU_PANEL_PADDING}px;
++      justify-content: center;
++      border-radius: 10px;
++      background: var(--affine-background-overlay-panel-color);
++      box-shadow: var(--affine-shadow-2);
++      box-sizing: border-box;
++      z-index: 1;
++      overflow: auto;
++      overscroll-behavior: contain;
++    }
++
++    .mindmap-item {
++      width: ${SHAPE_MENU_ITEM_WIDTH}px;
++      height: ${SHAPE_MENU_ITEM_HEIGHT}px;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      border-radius: 6px;
++      cursor: pointer;
++    }
++
++    .mindmap-item:hover {
++      background: var(--affine-hover-color);
++    }
++
++    .mindmap-item svg {
++      width: 20px;
++      height: 20px;
++      transform: scale(0.85);
++    }
++  `;
++
++  @property({ attribute: false })
++  accessor edgeless!: BlockComponent;
++
++  @property({ attribute: false })
++  accessor current!: ShapeElementModel;
++
++  @property({ attribute: false })
++  accessor direction!: Direction;
++
++  get gfx() {
++    return this.edgeless.std.get(GfxControllerIdentifier);
++  }
++
++  get crud() {
++    return this.edgeless.std.get(EdgelessCRUDIdentifier);
++  }
++
++  private _getConnectedElements() {
++    const surface = getSurfaceBlock(this.edgeless.std.store);
++    if (!surface) return [];
++
++    return surface.getConnectors(this.current.id).reduce((prev, current) => {
++      if (current.target.id === this.current.id && current.source.id) {
++        prev.push(
++          this.crud.getElementById(current.source.id) as ShapeElementModel
++        );
++      }
++      if (current.source.id === this.current.id && current.target.id) {
++        prev.push(
++          this.crud.getElementById(current.target.id) as ShapeElementModel
++        );
++      }
++      return prev;
++    }, [] as ShapeElementModel[]);
++  }
++
++  private _computeNextBound() {
++    const connected = this._getConnectedElements();
++    return nextBound(this.direction, this.current, connected);
++  }
++
++  private _addConnector(sourceId: string, targetId: string) {
++    const { startPosition, endPosition } = getPosition(this.direction);
++    const connectorMode =
++      this.edgeless.std.get(EditPropsStore).lastProps$.value.connector.mode ??
++      ConnectorMode.Rounded;
++
++    return this.crud.addElement(CanvasElementType.CONNECTOR, {
++      mode: connectorMode,
++      source: {
++        id: sourceId,
++        position: startPosition,
++      },
++      target: {
++        id: targetId,
++        position: endPosition,
++      },
++    });
++  }
++
++  private _getNextMindmapPaletteStyle() {
++    const mode =
++      this.edgeless.std.getOptional(EditorSettingProvider)?.setting$.peek()
++        .edgelessMindmapNextColor ?? 'disable';
++
++    if (mode === 'disable') return null;
++
++    const wrapCount = Number(mode);
++    if (!Number.isFinite(wrapCount) || wrapCount <= 0) return null;
++
++    const workspaceId = this.edgeless.store.workspace.id;
++    const storedPalettes =
++      readStoredShapePalettes(workspaceId) ?? shapePalettes;
++    const memory = getToolPaletteMemory('shape');
++    const { palette } = getShapePaletteDataFrom(storedPalettes, memory.index);
++    const maxStyles = Math.min(
++      wrapCount,
++      palette.styles.length,
++      shapePaletteKeys.length
++    );
++    if (maxStyles <= 0) return null;
++
++    let currentStyleIndex =
++      typeof this.current.mindmapNextPaletteIndex === 'number'
++        ? this.current.mindmapNextPaletteIndex
++        : -1;
++
++    if (currentStyleIndex < 0) {
++      const matchedIndex = palette.styles.findIndex(
++        style =>
++          style.fill === this.current.fillColor &&
++          style.stroke === this.current.strokeColor
++      );
++      if (matchedIndex >= 0) {
++        currentStyleIndex = matchedIndex;
++      }
++
++      if (currentStyleIndex < 0 && memory.activeKey) {
++        const activeIndex = shapePaletteKeys.indexOf(memory.activeKey);
++        if (activeIndex >= 0) {
++          currentStyleIndex = activeIndex;
++        }
++      }
++
++      if (currentStyleIndex < 0) {
++        currentStyleIndex = 0;
++      }
++    }
++
++    const nextStyleIndex = (currentStyleIndex + 1) % maxStyles;
++    return {
++      style: palette.styles[nextStyleIndex] ?? null,
++      index: nextStyleIndex,
++    };
++  }
++
++  private _addShape(targetType: ShapeName) {
++    const bound = this._computeNextBound();
++    const id = createEdgelessElement(this.edgeless, this.current, bound);
++    if (!id) return;
++
++    const nextStyleResult = this._getNextMindmapPaletteStyle();
++    const nextStyle = nextStyleResult?.style ?? null;
++
++    this.crud.updateElement(id, {
++      xywh: bound.serialize(),
++      shapeType: getShapeType(targetType),
++      radius: getShapeRadius(targetType),
++      collapsed: false,
++      ...(nextStyleResult
++        ? { mindmapNextPaletteIndex: nextStyleResult.index }
++        : {}),
++      ...(nextStyle
++        ? {
++            fillColor: nextStyle.fill,
++            strokeColor: nextStyle.stroke,
++            filled: !isTransparent(nextStyle.fill),
++            strokeWidth: nextStyle.strokeWidth,
++            strokeStyle: nextStyle.strokeStyle,
++            gradientFinal: nextStyle.gradientFinal,
++            gradientDirection: nextStyle.gradientDirection,
++          }
++        : {}),
++    });
++    if (targetType === ShapeType.MindmapBranch) {
++      this.crud.updateElement(id, { filled: false });
++    }
++
++    if (nextStyleResult) {
++      this.crud.updateElement(this.current.id, {
++        mindmapNextPaletteIndex: nextStyleResult.index,
++      });
++    }
++
++    const connectorId = this._addConnector(this.current.id, id);
++    if (nextStyle && connectorId) {
++      this.crud.updateElement(connectorId, {
++        stroke: nextStyle.stroke,
++        strokeWidth: nextStyle.strokeWidth,
++        strokeStyle: nextStyle.strokeStyle,
++      });
++    }
++
++    mountShapeTextEditor(
++      this.crud.getElementById(id) as ShapeElementModel,
++      this.edgeless
++    );
++    this.gfx.selection.set({
++      elements: [id],
++      editing: true,
++    });
++    this.edgeless.store.captureSync();
++    this.remove();
++  }
++
++  private _getPanelPosition() {
++    const { viewport } = this.gfx;
++    const { boundingClientRect } = viewport;
++    const layout = getShapeMenuLayout(
++      MINDMAP_SHAPES.length,
++      boundingClientRect.width
++    );
++    const bound = this.current.elementBound;
++    const [left, top] = viewport.toViewCoord(bound.x, bound.y);
++    const [right, bottom] = viewport.toViewCoord(
++      bound.x + bound.w,
++      bound.y + bound.h
++    );
++
++    const width = right - left;
++    const height = bottom - top;
++
++    let x = left + width / 2 - layout.width / 2;
++    let y = top - layout.height - PANEL_MARGIN;
++
++    switch (this.direction) {
++      case Direction.Right:
++        x = right + PANEL_MARGIN;
++        y = top + height / 2 - layout.height / 2;
++        break;
++      case Direction.Bottom:
++        x = left + width / 2 - layout.width / 2;
++        y = bottom + PANEL_MARGIN;
++        break;
++      case Direction.Left:
++        x = left - PANEL_MARGIN - layout.width;
++        y = top + height / 2 - layout.height / 2;
++        break;
++      case Direction.Top:
++        x = left + width / 2 - layout.width / 2;
++        y = top - layout.height - PANEL_MARGIN;
++        break;
++    }
++
++    x = clamp(x, 20, boundingClientRect.width - 20 - layout.width);
++    y = clamp(y, 20, boundingClientRect.height - 20 - layout.height);
++
++    return [x, y, layout] as const;
++  }
++
++  override connectedCallback() {
++    super.connectedCallback();
++    this.edgeless.handleEvent('click', ctx => {
++      const raw = ctx.get('pointerState').raw as MouseEvent | PointerEvent;
++      const composedPath = raw.composedPath?.() ?? [];
++      const clickAway = !composedPath.includes(this);
++      if (clickAway) this.remove();
++    });
++  }
++
++  override firstUpdated() {
++    this.disposables.add(
++      this.gfx.viewport.viewportUpdated.subscribe(() => this.requestUpdate())
++    );
++  }
++
++  override render() {
++    const position = this._getPanelPosition();
++    if (!position) return nothing;
++    const [x, y, layout] = position;
++
++    return html`<div
++      class="mindmap-panel"
++      style=${styleMap({
++        left: `${x}px`,
++        top: `${y}px`,
++        width: `${layout.width}px`,
++        height: `${layout.height}px`,
++        gridTemplateColumns: `repeat(${layout.columns}, ${SHAPE_MENU_ITEM_WIDTH}px)`,
++      })}
++      @wheel=${stopPropagation}
++      @pointerdown=${stopPropagation}
++    >
++      ${repeat(
++        MINDMAP_SHAPES,
++        item => item.name,
++        item =>
++          html`<div
++            class="mindmap-item"
++            @click=${() => this._addShape(item.name as ShapeName)}
++          >
++            ${item.icon}
++          </div>`
++      )}
++    </div>`;
++  }
++}
+diff --git a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
+index 33d19b8869..fba2fffea1 100644
+--- a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
++++ b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
+@@ -53,6 +53,19 @@ enum ShapeTextFontSize {
+ }
+ 
+ type LibraryShapesVisibility = 'disable' | 'searchable' | 'show';
++type MindmapNextColorSetting =
++  | 'disable'
++  | '1'
++  | '2'
++  | '3'
++  | '4'
++  | '5'
++  | '6'
++  | '7'
++  | '8'
++  | '9'
++  | '10'
++  | '11';
+ 
+ export const ShapeSettings = () => {
+   const t = useI18n();
+@@ -211,6 +224,44 @@ export const ShapeSettings = () => {
+     [editorSetting]
+   );
+ 
++  const mindmapNextColorItems = useMemo(() => {
++    const options: MindmapNextColorSetting[] = [
++      'disable',
++      '1',
++      '2',
++      '3',
++      '4',
++      '5',
++      '6',
++      '7',
++      '8',
++      '9',
++      '10',
++      '11',
++    ];
++
++    return options.map(option => {
++      const label = option === 'disable' ? 'Disabled' : `${option} color`;
++      return (
++        <MenuItem
++          key={option}
++          onSelect={() => {
++            editorSetting.set('edgelessMindmapNextColor', option);
++          }}
++          selected={(settings.edgelessMindmapNextColor ?? 'disable') === option}
++        >
++          {label}
++        </MenuItem>
++      );
++    });
++  }, [editorSetting, settings.edgelessMindmapNextColor]);
++
++  const mindmapNextColorLabel =
++    settings.edgelessMindmapNextColor === 'disable' ||
++    !settings.edgelessMindmapNextColor
++      ? 'Disabled'
++      : `${settings.edgelessMindmapNextColor} color`;
++
+   const shapes = useMemo<RadioItem[]>(
+     () => [
+       {
+@@ -654,6 +705,16 @@ export const ShapeSettings = () => {
+           onChange={setLibraryShapesVisibility}
+         />
+       </SettingRow>
++      <SettingRow name={'Mindmap next color'} desc={''}>
++        <DropdownMenu
++          items={mindmapNextColorItems}
++          trigger={
++            <MenuTrigger className={menuTrigger}>
++              {mindmapNextColorLabel}
++            </MenuTrigger>
++          }
++        />
++      </SettingRow>
+     </>
+   );
+ };
+-- 
+2.53.0
+
