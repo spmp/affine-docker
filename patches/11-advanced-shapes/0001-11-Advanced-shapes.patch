@@ -1,28 +1,3 @@
-From b6568b9c1eea1285c53845ce24c4397f7756dd55 Mon Sep 17 00:00:00 2001
-From: Jasper Aorangi <3222409+spmp@users.noreply.github.com>
-Date: Thu, 7 May 2026 21:42:41 -0600
-Subject: [PATCH] 11 Advanced shapes
-
----
- .../gfx/connector/src/connector-manager.ts    |  15 +-
- .../gfx/connector/src/connector-watcher.ts    |  25 +-
- .../shape/src/element-renderer/shape/index.ts |   3 +-
- .../element-renderer/shape/mindmap-branch.ts  |  72 +++
- .../shape/src/element-renderer/shape/utils.ts |  40 +-
- .../affine/gfx/shape/src/element-view.ts      | 428 +++++++++++++++++-
- blocksuite/affine/gfx/shape/src/shape-tool.ts |  19 -
- .../shape/src/toolbar/shape-menu-config.ts    |  56 +++
- .../affine/model/src/elements/shape/shape.ts  |   4 +
- .../src/services/editor-setting-service.ts    |  16 +
- .../affine/shared/src/utils/zod-schema.ts     |   1 +
- .../src/edgeless-auto-complete.ts             | 137 ++++--
- .../edgeless-selected-rect/src/effects.ts     |   5 +
- .../src/mindmap-shape-panel.ts                | 381 ++++++++++++++++
- .../general-setting/editor/edgeless/shape.tsx |  61 +++
- 15 files changed, 1197 insertions(+), 66 deletions(-)
- create mode 100644 blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts
- create mode 100644 blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts
-
 diff --git a/blocksuite/affine/gfx/connector/src/connector-manager.ts b/blocksuite/affine/gfx/connector/src/connector-manager.ts
 index 34551e4048..9bf9e7f61b 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-manager.ts
@@ -92,6 +67,115 @@ index fa632c2cc3..5d73ea6c23 100644
        }
  
        if (
+diff --git a/blocksuite/affine/gfx/shape/src/__tests__/shape-menu-config.unit.spec.ts b/blocksuite/affine/gfx/shape/src/__tests__/shape-menu-config.unit.spec.ts
+new file mode 100644
+index 0000000000..369554cfdc
+--- /dev/null
++++ b/blocksuite/affine/gfx/shape/src/__tests__/shape-menu-config.unit.spec.ts
+@@ -0,0 +1,38 @@
++import { ShapeType } from '@blocksuite/affine-model';
++import { describe, expect, it } from 'vitest';
++
++import {
++  ExtendedShapeConfig,
++  ShapeComponentConfig,
++} from '../toolbar/shape-menu-config.js';
++
++describe('shape menu config', () => {
++  it('contains core shapes', () => {
++    const names = ShapeComponentConfig.map(entry => entry.name);
++    expect(names).toContain(ShapeType.Rect);
++    expect(names).toContain('roundedRect');
++    expect(names).toContain(ShapeType.Ellipse);
++    expect(names).toContain(ShapeType.Diamond);
++  });
++
++  it('contains advanced shapes in extended config', () => {
++    const names = ExtendedShapeConfig.map(entry => entry.name);
++    expect(names).toContain(ShapeType.Container);
++    expect(names).toContain(ShapeType.VerticalContainer);
++    expect(names).toContain(ShapeType.HorizontalContainer);
++    expect(names).toContain(ShapeType.MindmapCentralIdea);
++    expect(names).toContain(ShapeType.MindmapBranch);
++    expect(names).toContain(ShapeType.MindmapSubTopic);
++    expect(names).toContain(ShapeType.MindmapSquare);
++  });
++
++  it('does not duplicate shape entries in each config', () => {
++    const baseNames = ShapeComponentConfig.map(entry => entry.name);
++    const uniqueBaseNames = new Set(baseNames);
++    expect(uniqueBaseNames.size).toBe(baseNames.length);
++
++    const extendedNames = ExtendedShapeConfig.map(entry => entry.name);
++    const uniqueExtendedNames = new Set(extendedNames);
++    expect(uniqueExtendedNames.size).toBe(extendedNames.length);
++  });
++});
+diff --git a/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts b/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
+index 39b89a9487..6c6dd716d8 100644
+--- a/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
++++ b/blocksuite/affine/gfx/shape/src/draggable/shape-menu.ts
+@@ -1,6 +1,7 @@
+ import { EdgelessCRUDIdentifier } from '@blocksuite/affine-block-surface';
+ import {
+   type Color,
++  CONNECTOR_TREE_SHAPES,
+   ConnectorElementModel,
+   DefaultTheme,
+   isTransparent,
+@@ -11,6 +12,7 @@ import {
+   ShapeType,
+ } from '@blocksuite/affine-model';
+ import {
++  EditorSettingProvider,
+   EditPropsStore,
+   FeatureFlagService,
+   ThemeProvider,
+@@ -172,6 +174,7 @@ export class EdgelessShapeMenu extends SignalWatcher(
+     this._recordShapeProps(shapeName, nextProps);
+ 
+     const applied = this._applyColorToSelection(
++      key,
+       fillColor,
+       strokeColor,
+       strokeWidth,
+@@ -237,6 +240,7 @@ export class EdgelessShapeMenu extends SignalWatcher(
+   };
+ 
+   private _applyColorToSelection(
++    key: string,
+     fillColor: Color,
+     strokeColor?: Color,
+     strokeWidth?: ShapePaletteStyle['strokeWidth'],
+@@ -278,6 +282,28 @@ export class EdgelessShapeMenu extends SignalWatcher(
+           gradientFinal,
+           gradientDirection,
+         };
++        if (CONNECTOR_TREE_SHAPES.has(element.shapeType)) {
++          const mode =
++            this.edgeless.std
++              .getOptional(EditorSettingProvider)
++              ?.setting$.peek().edgelessMindmapNextColor ?? 'children';
++          const wrapSize =
++            this.edgeless.std
++              .getOptional(EditorSettingProvider)
++              ?.setting$.peek().edgelessMindmapPaletteSize ?? '11';
++          const wrapCount = Number(wrapSize);
++          const maxStyles =
++            mode === 'disable'
++              ? 0
++              : Math.min(
++                  Number.isFinite(wrapCount) ? wrapCount : 0,
++                  shapePaletteKeys.length
++                );
++          const selectedIndex = shapePaletteKeys.indexOf(key);
++          if (maxStyles > 0 && selectedIndex >= 0) {
++            shapeUpdates.mindmapNextPaletteIndex = selectedIndex % maxStyles;
++          }
++        }
+         if (strokeWidth) shapeUpdates.strokeWidth = strokeWidth;
+         if (strokeStyle) shapeUpdates.strokeStyle = strokeStyle;
+         crud.updateElement(element.id, shapeUpdates);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
 index 29756ccb14..92d7527613 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
@@ -192,7 +276,7 @@ index 0000000000..b4391ae32b
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
-index 4bb9924f85..96f0a1a80c 100644
+index 4bb9924f85..609a1ba4f4 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
 @@ -15,7 +15,7 @@ import type {
@@ -204,7 +288,15 @@ index 4bb9924f85..96f0a1a80c 100644
  import { FeatureFlagService } from '@blocksuite/affine-shared/services';
  import type { Bound, SerializedXYWH } from '@blocksuite/global/gfx';
  import { deltaInsertsToChunks } from '@blocksuite/std/inline';
-@@ -70,12 +70,8 @@ export const resolveGradientFill = (
+@@ -50,6 +50,7 @@ export const resolveGradientFill = (
+   width: number,
+   height: number
+ ) => {
++  if (!Number.isFinite(width) || !Number.isFinite(height)) return fillColor;
+   const gradientFinal =
+     'gradientFinal' in model ? model.gradientFinal : undefined;
+   if (!gradientFinal) return fillColor;
+@@ -70,12 +71,8 @@ export const resolveGradientFill = (
      x1 * width,
      y1 * height
    );
@@ -219,7 +311,7 @@ index 4bb9924f85..96f0a1a80c 100644
    return gradient;
  };
  
-@@ -132,12 +128,22 @@ export function drawGeneralShape(
+@@ -132,12 +129,22 @@ export function drawGeneralShape(
  
    switch (shapeModel.shapeType) {
      case 'rect':
@@ -242,7 +334,7 @@ index 4bb9924f85..96f0a1a80c 100644
        drawEllipse(ctx, 0, 0, w, h);
        break;
      case 'triangle':
-@@ -243,6 +249,26 @@ export function drawGeneralShape(
+@@ -243,6 +250,26 @@ export function drawGeneralShape(
  
    ctx.fill();
    ctx.stroke();
@@ -872,6 +964,41 @@ index 68f42d37ec..42871fb537 100644
  ];
  
  // All shapes combined (for shape browser)
+diff --git a/blocksuite/affine/gfx/shape/vitest.config.ts b/blocksuite/affine/gfx/shape/vitest.config.ts
+new file mode 100644
+index 0000000000..a83a7b5a5a
+--- /dev/null
++++ b/blocksuite/affine/gfx/shape/vitest.config.ts
+@@ -0,0 +1,29 @@
++/* eslint-disable import-x/no-extraneous-dependencies */
++import { fileURLToPath } from 'node:url';
++
++import { defineConfig } from 'vitest/config';
++
++export default defineConfig({
++  root: fileURLToPath(new URL('.', import.meta.url)),
++  esbuild: {
++    target: 'es2018',
++  },
++  test: {
++    globalSetup: '../../../../scripts/vitest-global.js',
++    include: ['src/**/__tests__/**/*.unit.spec.ts'],
++    testTimeout: 1000,
++    coverage: {
++      provider: 'istanbul',
++      reporter: ['lcov'],
++      reportsDirectory: '../../../../.coverage/affine-gfx-shape',
++    },
++    onConsoleLog(log, type) {
++      if (log.includes('https://lit.dev/msg/dev-mode')) {
++        return false;
++      }
++      console.warn(`Unexpected ${type} log`, log);
++      throw new Error(log);
++    },
++    environment: 'happy-dom',
++  },
++});
 diff --git a/blocksuite/affine/model/src/elements/shape/shape.ts b/blocksuite/affine/model/src/elements/shape/shape.ts
 index 0138f86ea7..9a2566d1fe 100644
 --- a/blocksuite/affine/model/src/elements/shape/shape.ts
@@ -895,29 +1022,19 @@ index 0138f86ea7..9a2566d1fe 100644
    accessor textHorizontalAlign!: TextAlign;
  
 diff --git a/blocksuite/affine/shared/src/services/editor-setting-service.ts b/blocksuite/affine/shared/src/services/editor-setting-service.ts
-index 5457f5a402..8111b8c674 100644
+index 5457f5a402..9d7ab69a78 100644
 --- a/blocksuite/affine/shared/src/services/editor-setting-service.ts
 +++ b/blocksuite/affine/shared/src/services/editor-setting-service.ts
-@@ -13,6 +13,22 @@ export const GeneralSettingSchema = z
+@@ -13,6 +13,12 @@ export const GeneralSettingSchema = z
      edgelessLibraryShapesVisibility: z
        .enum(['disable', 'searchable', 'show'])
        .default('show'),
 +    edgelessMindmapNextColor: z
-+      .enum([
-+        'disable',
-+        '1',
-+        '2',
-+        '3',
-+        '4',
-+        '5',
-+        '6',
-+        '7',
-+        '8',
-+        '9',
-+        '10',
-+        '11',
-+      ])
-+      .default('disable'),
++      .enum(['disable', 'children', 'depth'])
++      .default('children'),
++    edgelessMindmapPaletteSize: z
++      .enum(['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'])
++      .default('11'),
      docCanvasPreferView: z
        .enum(['affine:embed-linked-doc', 'affine:embed-synced-doc'])
        .default('affine:embed-synced-doc'),
@@ -934,7 +1051,7 @@ index 3dc7ae3592..7b76305a04 100644
  
  export const ShapeSchema = z.object(ShapeObject).default(DEFAULT_SHAPE);
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
-index e6abb5b83c..bb47ff3f6f 100644
+index e6abb5b83c..16581e6153 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 @@ -20,6 +20,7 @@ import type {
@@ -945,11 +1062,13 @@ index e6abb5b83c..bb47ff3f6f 100644
    ConnectorMode,
    DEFAULT_NOTE_HEIGHT,
    DefaultTheme,
-@@ -36,7 +37,7 @@ import type { SelectedRect } from '@blocksuite/affine-shared/types';
+@@ -35,8 +36,8 @@ import {
+ import type { SelectedRect } from '@blocksuite/affine-shared/types';
  import { handleNativeRangeAtPoint } from '@blocksuite/affine-shared/utils';
  import { DisposableGroup } from '@blocksuite/global/disposable';
- import type { Bound, IVec } from '@blocksuite/global/gfx';
+-import type { Bound, IVec } from '@blocksuite/global/gfx';
 -import { PointLocation, Vec } from '@blocksuite/global/gfx';
++import { type Bound, type IVec, PointLocation } from '@blocksuite/global/gfx';
 +import { Vec } from '@blocksuite/global/gfx';
  import { WithDisposable } from '@blocksuite/global/lit';
  import {
@@ -1027,34 +1146,21 @@ index e6abb5b83c..bb47ff3f6f 100644
        shapeType: curShape.shapeType,
        getLineIntersections(start: IVec, end: IVec) {
          return shapeMethods[this.shapeType].getLineIntersections(
-@@ -380,14 +393,14 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-           this
+@@ -381,6 +394,10 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
          );
        },
--    } as ShapeElementModel;
--    const endConnectionPosition = this._mapPositionByFlip(endPosition, nextShape);
--    const startPoint = PointLocation.fromVec(
--      startBound.getRelativePoint(startConnectionPosition)
--    );
--    const endPoint = PointLocation.fromVec(
--      nextBound.getRelativePoint(endConnectionPosition)
--    );
-+      } as ShapeElementModel;
-+      const endConnectionPosition = this._mapPositionByFlip(endPosition, nextShape);
-+      const startPoint = PointLocation.fromVec(
-+        startBound.getRelativePoint(startConnectionPosition)
-+      );
-+      const endPoint = PointLocation.fromVec(
-+        nextBound.getRelativePoint(endConnectionPosition)
-+      );
- 
-     return this._pathGenerator.generateOrthogonalConnectorPath({
-       startBound,
-@@ -397,16 +410,6 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-     });
+     } as ShapeElementModel;
++    const startConnectionPosition = this._mapPositionByFlip(
++      startPosition,
++      this.current
++    );
+     const endConnectionPosition = this._mapPositionByFlip(endPosition, nextShape);
+     const startPoint = PointLocation.fromVec(
+       startBound.getRelativePoint(startConnectionPosition)
+@@ -398,13 +415,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
    }
  
--  private _mapPositionByFlip(
+   private _mapPositionByFlip(
 -    position: Connection['position'],
 -    shape: { flipX?: boolean; flipY?: boolean }
 -  ): Connection['position'] {
@@ -1062,12 +1168,15 @@ index e6abb5b83c..bb47ff3f6f 100644
 -      shape.flipX ? 1 - position[0] : position[0],
 -      shape.flipY ? 1 - position[1] : position[1],
 -    ];
--  }
--
++    position: [number, number],
++    shape: Pick<ShapeElementModel, 'flipX' | 'flipY'>
++  ): [number, number] {
++    const [x, y] = position;
++    return [shape.flipX ? 1 - x : x, shape.flipY ? 1 - y : y];
+   }
+ 
    private _computeNextBound(type: Direction) {
-     if (isShape(this.current)) {
-       const connectedShapes = this._getConnectedElements(this.current).filter(
-@@ -463,17 +466,17 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -463,17 +478,17 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      if (!id) return;
      if (isShape(this.current)) {
        const { startPosition, endPosition } = getPosition(type);
@@ -1090,7 +1199,7 @@ index e6abb5b83c..bb47ff3f6f 100644
          }
        );
  
-@@ -806,6 +809,65 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -806,6 +821,65 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      });
    }
  
@@ -1156,7 +1265,7 @@ index e6abb5b83c..bb47ff3f6f 100644
    private _showNextShape(
      current: ShapeElementModel,
      bound: Bound,
-@@ -843,6 +905,7 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -843,6 +917,7 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
          this._autoCompleteOverlay.linePoints = [];
          this._autoCompleteOverlay.renderShape = null;
          this._removeFlowchartPanel();
@@ -1164,7 +1273,7 @@ index e6abb5b83c..bb47ff3f6f 100644
        })
      );
  
-@@ -902,6 +965,8 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -902,6 +977,8 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
  
      const isShape = this.current instanceof ShapeElementModel;
      const isMindMap = this.current.group instanceof MindmapElementModel;
@@ -1173,7 +1282,7 @@ index e6abb5b83c..bb47ff3f6f 100644
      const isFlowchart =
        isShape && this._isFlowchartShape(this.current as ShapeElementModel);
  
-@@ -926,9 +991,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -926,9 +1003,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      >
        ${isMindMap
          ? this._renderMindMapButtons()
@@ -1213,10 +1322,10 @@ index 089ec9b021..a4d694b432 100644
      EDGELESS_SELECTED_RECT_WIDGET,
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts
 new file mode 100644
-index 0000000000..018fd3e47c
+index 0000000000..442ab010c4
 --- /dev/null
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/mindmap-shape-panel.ts
-@@ -0,0 +1,381 @@
+@@ -0,0 +1,393 @@
 +import {
 +  CanvasElementType,
 +  EdgelessCRUDIdentifier,
@@ -1392,13 +1501,17 @@ index 0000000000..018fd3e47c
 +  }
 +
 +  private _getNextMindmapPaletteStyle() {
-+    const mode =
++    const behavior =
 +      this.edgeless.std.getOptional(EditorSettingProvider)?.setting$.peek()
-+        .edgelessMindmapNextColor ?? 'disable';
++        .edgelessMindmapNextColor ?? 'children';
 +
-+    if (mode === 'disable') return null;
++    if (behavior === 'disable') return null;
 +
-+    const wrapCount = Number(mode);
++    const wrapSize =
++      this.edgeless.std.getOptional(EditorSettingProvider)?.setting$.peek()
++        .edgelessMindmapPaletteSize ?? '11';
++
++    const wrapCount = Number(wrapSize);
 +    if (!Number.isFinite(wrapCount) || wrapCount <= 0) return null;
 +
 +    const workspaceId = this.edgeless.store.workspace.id;
@@ -1418,26 +1531,15 @@ index 0000000000..018fd3e47c
 +        ? this.current.mindmapNextPaletteIndex
 +        : -1;
 +
++    if (currentStyleIndex < 0 && memory.activeKey) {
++      const activeIndex = shapePaletteKeys.indexOf(memory.activeKey);
++      if (activeIndex >= 0) {
++        currentStyleIndex = activeIndex;
++      }
++    }
++
 +    if (currentStyleIndex < 0) {
-+      const matchedIndex = palette.styles.findIndex(
-+        style =>
-+          style.fill === this.current.fillColor &&
-+          style.stroke === this.current.strokeColor
-+      );
-+      if (matchedIndex >= 0) {
-+        currentStyleIndex = matchedIndex;
-+      }
-+
-+      if (currentStyleIndex < 0 && memory.activeKey) {
-+        const activeIndex = shapePaletteKeys.indexOf(memory.activeKey);
-+        if (activeIndex >= 0) {
-+          currentStyleIndex = activeIndex;
-+        }
-+      }
-+
-+      if (currentStyleIndex < 0) {
-+        currentStyleIndex = 0;
-+      }
++      currentStyleIndex = 0;
 +    }
 +
 +    const nextStyleIndex = (currentStyleIndex + 1) % maxStyles;
@@ -1448,32 +1550,48 @@ index 0000000000..018fd3e47c
 +  }
 +
 +  private _addShape(targetType: ShapeName) {
++    const behavior =
++      this.edgeless.std.getOptional(EditorSettingProvider)?.setting$.peek()
++        .edgelessMindmapNextColor ?? 'children';
++
 +    const bound = this._computeNextBound();
 +    const id = createEdgelessElement(this.edgeless, this.current, bound);
 +    if (!id) return;
 +
 +    const nextStyleResult = this._getNextMindmapPaletteStyle();
 +    const nextStyle = nextStyleResult?.style ?? null;
++    const resolvedStrokeWidth =
++      nextStyle?.strokeWidth ?? this.current.strokeWidth;
++    const resolvedStrokeStyle =
++      nextStyle?.strokeStyle ?? this.current.strokeStyle;
++
++    const nextShapeStylePatch: Record<string, unknown> = {};
++    if (nextStyle) {
++      nextShapeStylePatch.fillColor = nextStyle.fill;
++      nextShapeStylePatch.strokeColor = nextStyle.stroke;
++      nextShapeStylePatch.filled = !isTransparent(nextStyle.fill);
++      nextShapeStylePatch.strokeWidth = resolvedStrokeWidth;
++      nextShapeStylePatch.strokeStyle = resolvedStrokeStyle;
++      if (nextStyle.gradientFinal !== undefined) {
++        nextShapeStylePatch.gradientFinal = nextStyle.gradientFinal;
++      }
++      if (nextStyle.gradientDirection !== undefined) {
++        nextShapeStylePatch.gradientDirection = nextStyle.gradientDirection;
++      }
++    }
 +
 +    this.crud.updateElement(id, {
 +      xywh: bound.serialize(),
 +      shapeType: getShapeType(targetType),
-+      radius: getShapeRadius(targetType),
++      radius:
++        targetType === ShapeType.MindmapSubTopic
++          ? 0.5
++          : getShapeRadius(targetType),
 +      collapsed: false,
 +      ...(nextStyleResult
 +        ? { mindmapNextPaletteIndex: nextStyleResult.index }
 +        : {}),
-+      ...(nextStyle
-+        ? {
-+            fillColor: nextStyle.fill,
-+            strokeColor: nextStyle.stroke,
-+            filled: !isTransparent(nextStyle.fill),
-+            strokeWidth: nextStyle.strokeWidth,
-+            strokeStyle: nextStyle.strokeStyle,
-+            gradientFinal: nextStyle.gradientFinal,
-+            gradientDirection: nextStyle.gradientDirection,
-+          }
-+        : {}),
++      ...(nextStyle ? nextShapeStylePatch : {}),
 +    });
 +    if (targetType === ShapeType.MindmapBranch) {
 +      this.crud.updateElement(id, { filled: false });
@@ -1481,7 +1599,10 @@ index 0000000000..018fd3e47c
 +
 +    if (nextStyleResult) {
 +      this.crud.updateElement(this.current.id, {
-+        mindmapNextPaletteIndex: nextStyleResult.index,
++        mindmapNextPaletteIndex:
++          behavior === 'depth'
++            ? (this.current.mindmapNextPaletteIndex ?? nextStyleResult.index)
++            : nextStyleResult.index,
 +      });
 +    }
 +
@@ -1489,8 +1610,8 @@ index 0000000000..018fd3e47c
 +    if (nextStyle && connectorId) {
 +      this.crud.updateElement(connectorId, {
 +        stroke: nextStyle.stroke,
-+        strokeWidth: nextStyle.strokeWidth,
-+        strokeStyle: nextStyle.strokeStyle,
++        strokeWidth: resolvedStrokeWidth,
++        strokeStyle: resolvedStrokeStyle,
 +      });
 +    }
 +
@@ -1599,15 +1720,15 @@ index 0000000000..018fd3e47c
 +  }
 +}
 diff --git a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
-index 33d19b8869..fba2fffea1 100644
+index 33d19b8869..1b00f92a1b 100644
 --- a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
 +++ b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
 @@ -53,6 +53,19 @@ enum ShapeTextFontSize {
  }
  
  type LibraryShapesVisibility = 'disable' | 'searchable' | 'show';
-+type MindmapNextColorSetting =
-+  | 'disable'
++type MindmapNextColorMode = 'disable' | 'children' | 'depth';
++type MindmapPaletteSizeSetting =
 +  | '1'
 +  | '2'
 +  | '3'
@@ -1622,13 +1743,41 @@ index 33d19b8869..fba2fffea1 100644
  
  export const ShapeSettings = () => {
    const t = useI18n();
-@@ -211,6 +224,44 @@ export const ShapeSettings = () => {
+@@ -211,6 +224,68 @@ export const ShapeSettings = () => {
      [editorSetting]
    );
  
-+  const mindmapNextColorItems = useMemo(() => {
-+    const options: MindmapNextColorSetting[] = [
-+      'disable',
++  const mindmapNextColorModeItems = useMemo<RadioItem[]>(
++    () => [
++      {
++        value: 'disable',
++        label: 'Disabled',
++      },
++      {
++        value: 'children',
++        label: 'Children',
++      },
++      {
++        value: 'depth',
++        label: 'Depth',
++      },
++    ],
++    []
++  );
++
++  const mindmapNextColorMode = settings.edgelessMindmapNextColor ?? 'children';
++  const setMindmapNextColorMode = useCallback(
++    (value: string) => {
++      editorSetting.set(
++        'edgelessMindmapNextColor',
++        value as MindmapNextColorMode
++      );
++    },
++    [editorSetting]
++  );
++
++  const mindmapPaletteSizeItems = useMemo(() => {
++    const options: MindmapPaletteSizeSetting[] = [
 +      '1',
 +      '2',
 +      '3',
@@ -1643,40 +1792,45 @@ index 33d19b8869..fba2fffea1 100644
 +    ];
 +
 +    return options.map(option => {
-+      const label = option === 'disable' ? 'Disabled' : `${option} color`;
++      const label = `${option} color`;
 +      return (
 +        <MenuItem
 +          key={option}
 +          onSelect={() => {
-+            editorSetting.set('edgelessMindmapNextColor', option);
++            editorSetting.set('edgelessMindmapPaletteSize', option);
 +          }}
-+          selected={(settings.edgelessMindmapNextColor ?? 'disable') === option}
++          selected={(settings.edgelessMindmapPaletteSize ?? '11') === option}
 +        >
 +          {label}
 +        </MenuItem>
 +      );
 +    });
-+  }, [editorSetting, settings.edgelessMindmapNextColor]);
++  }, [editorSetting, settings.edgelessMindmapPaletteSize]);
 +
-+  const mindmapNextColorLabel =
-+    settings.edgelessMindmapNextColor === 'disable' ||
-+    !settings.edgelessMindmapNextColor
-+      ? 'Disabled'
-+      : `${settings.edgelessMindmapNextColor} color`;
++  const mindmapPaletteSizeLabel = `${settings.edgelessMindmapPaletteSize ?? '11'} color`;
 +
    const shapes = useMemo<RadioItem[]>(
      () => [
        {
-@@ -654,6 +705,16 @@ export const ShapeSettings = () => {
+@@ -654,6 +729,25 @@ export const ShapeSettings = () => {
            onChange={setLibraryShapesVisibility}
          />
        </SettingRow>
 +      <SettingRow name={'Mindmap next color'} desc={''}>
++        <RadioGroup
++          items={mindmapNextColorModeItems}
++          value={mindmapNextColorMode}
++          width={250}
++          className={settingWrapper}
++          onChange={setMindmapNextColorMode}
++        />
++      </SettingRow>
++      <SettingRow name={'Mindmap palette size'} desc={''}>
 +        <DropdownMenu
-+          items={mindmapNextColorItems}
++          items={mindmapPaletteSizeItems}
 +          trigger={
 +            <MenuTrigger className={menuTrigger}>
-+              {mindmapNextColorLabel}
++              {mindmapPaletteSizeLabel}
 +            </MenuTrigger>
 +          }
 +        />
@@ -1684,6 +1838,3 @@ index 33d19b8869..fba2fffea1 100644
      </>
    );
  };
--- 
-2.53.0
-
