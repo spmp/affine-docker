@@ -1,0 +1,40 @@
+From b744a0a3a0a321fa0d0bbfe2953fe587c3a4daef Mon Sep 17 00:00:00 2001
+From: Patch Test <patch-test@local>
+Date: Wed, 6 May 2026 17:26:42 -0600
+Subject: [PATCH 2/7] 10 update oxlintrc to not scan large library files
+
+---
+ .oxlintrc.json  | 4 +++-
+ .prettierignore | 4 ++++
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/.oxlintrc.json b/.oxlintrc.json
+index cb667d8156..e55198623f 100644
+--- a/.oxlintrc.json
++++ b/.oxlintrc.json
+@@ -54,7 +54,9 @@
+     "blocksuite/docs/api/**",
+     "packages/frontend/admin/src/config.json",
+     "**/test-docs.json",
+-    "**/test-blocks.json"
++    "**/test-blocks.json",
++    "blocksuite/affine/gfx/shape/src/drawio/library-catalog.ts",
++    "blocksuite/affine/gfx/shape/src/drawio/library-stencils.ts"
+   ],
+   "rules": {
+     "no-empty-static-block": "error",
+diff --git a/.prettierignore b/.prettierignore
+index 55f12213ba..7c5dab9b73 100644
+--- a/.prettierignore
++++ b/.prettierignore
+@@ -42,3 +42,7 @@ blocksuite/docs/api/**
+ packages/frontend/admin/src/config.json
+ **/test-docs.json
+ **/test-blocks.json
++
++blocksuite/affine/gfx/shape/src/drawio/library-catalog.ts
++blocksuite/affine/gfx/shape/src/drawio/library-stencils.ts
++
+-- 
+2.53.0
+

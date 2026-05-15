@@ -25,7 +25,7 @@ index 34551e4048..9bf9e7f61b 100644
  
      return null;
 diff --git a/blocksuite/affine/gfx/connector/src/connector-watcher.ts b/blocksuite/affine/gfx/connector/src/connector-watcher.ts
-index fa632c2cc3..5d73ea6c23 100644
+index 0d1a8c2387..f7dae286ae 100644
 --- a/blocksuite/affine/gfx/connector/src/connector-watcher.ts
 +++ b/blocksuite/affine/gfx/connector/src/connector-watcher.ts
 @@ -4,6 +4,7 @@ import {
@@ -36,17 +36,14 @@ index fa632c2cc3..5d73ea6c23 100644
  import type { GfxModel } from '@blocksuite/std/gfx';
  
  import { ConnectorPathGenerator } from './connector-manager';
-@@ -101,8 +102,28 @@ export const connectorWatcher: SurfaceMiddleware = (
-     surface.elementUpdated.subscribe(({ id, props }) => {
-       const element = elementGetter(id);
- 
--      if (props['xywh'] || props['rotate']) {
--        surface.getConnectors(id).forEach(c => addToUpdateList(c));
-+      if (props['xywh'] || props['rotate'] || props['hidden']) {
-+        surface.getConnectors(id).forEach(addToUpdateList);
-+      }
+@@ -67,6 +68,29 @@ export const connectorWatcher: SurfaceMiddleware = (
+         addToUpdateList(element as ConnectorElementModel);
+       }
+     }),
++    surface.elementUpdated.subscribe(({ id, props }) => {
++      const element = elementGetter(id);
 +
-+      if (props['collapseProxyId']) {
++      if (props['hidden'] || props['collapseProxyId']) {
 +        surface.getConnectors(id).forEach(addToUpdateList);
 +      }
 +
@@ -64,9 +61,11 @@ index fa632c2cc3..5d73ea6c23 100644
 +          .forEach(shape => {
 +            surface.getConnectors(shape.id).forEach(addToUpdateList);
 +          });
-       }
- 
++      }
++    }),
+     surface.store.slots.blockUpdated.subscribe(payload => {
        if (
+         payload.type === 'add' ||
 diff --git a/blocksuite/affine/gfx/shape/src/__tests__/shape-menu-config.unit.spec.ts b/blocksuite/affine/gfx/shape/src/__tests__/shape-menu-config.unit.spec.ts
 new file mode 100644
 index 0000000000..369554cfdc
@@ -177,10 +176,25 @@ index 39b89a9487..6c6dd716d8 100644
          if (strokeStyle) shapeUpdates.strokeStyle = strokeStyle;
          crud.updateElement(element.id, shapeUpdates);
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
-index 29756ccb14..92d7527613 100644
+index c9bcc26ff5..92d7527613 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/index.ts
-@@ -36,6 +36,7 @@ import { diamond } from './diamond.js';
+@@ -16,7 +16,13 @@ import type {
+   LocalShapeElementModel,
+   ShapeElementModel,
+ } from '@blocksuite/affine-model';
+-import { DefaultTheme, ShapeType, TextAlign } from '@blocksuite/affine-model';
++import {
++  CONTAINER_TITLE_SIZE,
++  DefaultTheme,
++  ShapeType,
++  TextAlign,
++  TextVerticalAlign,
++} from '@blocksuite/affine-model';
+ import type { IBound } from '@blocksuite/global/gfx';
+ import { Bound } from '@blocksuite/global/gfx';
+ import { deltaInsertsToChunks } from '@blocksuite/std/inline';
+@@ -30,6 +36,7 @@ import { diamond } from './diamond.js';
  import { document as documentShape } from './document.js';
  import { ellipse } from './ellipse.js';
  import { hexagon } from './hexagon.js';
@@ -188,15 +202,284 @@ index 29756ccb14..92d7527613 100644
  import { note } from './note.js';
  import { parallelogram } from './parallelogram.js';
  import { rect } from './rect.js';
-@@ -146,7 +147,7 @@ const shapeRenderers: Record<
-       horizontalContainer: rect,
-       list: rect,
-       mindmapCentralIdea: ellipse,
--      mindmapBranch: rect,
+@@ -58,6 +65,20 @@ const shapeRenderers: Record<
+       return stencil ? createStencilShapeRenderer(stencil) : rect;
+     };
+ 
++    const drawioStencil = (
++      model: ShapeElementModel | LocalShapeElementModel,
++      ctx: CanvasRenderingContext2D,
++      matrix: DOMMatrix,
++      renderer: CanvasRenderer,
++      rc: RoughCanvas,
++      colors: Colors
++    ) => {
++      const stencilName = (model as ShapeElementModel).stencilName;
++      const stencil = stencilName ? getStencilShapeData(stencilName) : null;
++      const render = stencil ? createStencilShapeRenderer(stencil) : rect;
++      render(model, ctx, matrix, renderer, rc, colors);
++    };
++
+     return {
+       callout: resolveStencil(ShapeType.Callout),
+       cylinder: resolveStencil(ShapeType.Cylinder),
+@@ -121,6 +142,17 @@ const shapeRenderers: Record<
+       arrowCalloutUp: resolveStencil(ShapeType.ArrowCalloutUp),
+       arrowCalloutDouble: resolveStencil(ShapeType.ArrowCalloutDouble),
+       arrowCalloutQuad: resolveStencil(ShapeType.ArrowCalloutQuad),
++      container: rect,
++      verticalContainer: rect,
++      horizontalContainer: rect,
++      list: rect,
++      mindmapCentralIdea: ellipse,
 +      mindmapBranch,
-       mindmapSubTopic: rect,
-       mindmapSquare: rect,
-       mindmapOrganization: rect,
++      mindmapSubTopic: rect,
++      mindmapSquare: rect,
++      mindmapOrganization: rect,
++      mindmapDivision: rect,
++      drawioStencil,
+     };
+   })(),
+   diamond,
+@@ -162,7 +194,6 @@ export const shape: ElementRenderer<ShapeElementModel> = (
+     true
+   );
+   const colors = { color, fillColor, strokeColor };
+-
+   shapeRenderers[model.shapeType](model, ctx, matrix, renderer, rc, colors);
+ 
+   if (model.textDisplay) {
+@@ -177,6 +208,28 @@ export const ShapeElementRendererExtension = ElementRendererExtension(
+ 
+ export * from './utils';
+ 
++export const shouldCompensateShapeFlipForText = (_shapeType: string) => true;
++
++export const getTextFlipCompensation = (
++  shapeType: string,
++  flipX: boolean,
++  flipY: boolean
++) => {
++  if (!shouldCompensateShapeFlipForText(shapeType)) {
++    return { x: 1, y: 1, rotate: 0 };
++  }
++  const inheritedX = flipX ? -1 : 1;
++  const inheritedY = flipY ? -1 : 1;
++  if (shapeType === ShapeType.HorizontalContainer) {
++    return {
++      x: flipX ? -1 : 1,
++      y: flipX ? -1 : 1,
++      rotate: 0,
++    };
++  }
++  return { x: inheritedX, y: inheritedY, rotate: 0 };
++};
++
+ function renderText(
+   model: ShapeElementModel | LocalShapeElementModel,
+   ctx: CanvasRenderingContext2D,
+@@ -194,43 +247,173 @@ function renderText(
+     h,
+     textVerticalAlign,
+     padding,
++    textRotate,
++    textFlipX,
++    textFlipY,
+   } = model;
+   if (!text) return;
+ 
+-  const [verticalPadding, horPadding] = padding;
+   const flipX = 'flipX' in model ? model.flipX : false;
+   const flipY = 'flipY' in model ? model.flipY : false;
++
++  let textAreaWidth = w;
++  let textAreaHeight = h;
++  let textOffsetX = 0;
++  let textOffsetY = 0;
++  let effectiveVerticalAlign = textVerticalAlign;
++
++  if (model.shapeType === ShapeType.VerticalContainer) {
++    textAreaHeight = Math.min(CONTAINER_TITLE_SIZE, h);
++    effectiveVerticalAlign = TextVerticalAlign.Center;
++  }
++
++  if (model.shapeType === ShapeType.Container) {
++    effectiveVerticalAlign = TextVerticalAlign.Top;
++  }
++
++  if (model.shapeType === ShapeType.MindmapBranch) {
++    textAreaHeight = h;
++    effectiveVerticalAlign = TextVerticalAlign.Top;
++  }
++
++  if (model.shapeType === ShapeType.HorizontalContainer) {
++    textAreaWidth = Math.min(CONTAINER_TITLE_SIZE, w);
++    textAreaHeight = h;
++    effectiveVerticalAlign = TextVerticalAlign.Center;
++  }
++
++  const inherited = getTextFlipCompensation(model.shapeType, flipX, flipY);
++  const scaleX = inherited.x * (textFlipX ? -1 : 1);
++  const scaleY = inherited.y * (textFlipY ? -1 : 1);
++  const rotation = (textRotate ?? 0) + inherited.rotate;
++
++  let [verticalPadding, horPadding] = padding;
++  if (model.shapeType === ShapeType.MindmapBranch) {
++    verticalPadding = Math.min(verticalPadding, 4);
++    horPadding = Math.min(horPadding, 8);
++  }
+   const font = getFontString(model);
+   const { lineGap, lineHeight } = measureTextInDOM(
+     fontFamily,
+     fontSize,
+     fontWeight
+   );
++  if (model.shapeType === ShapeType.MindmapBranch) {
++    textOffsetY = -Math.min(lineHeight * 0.35, 6);
++    textOffsetX = 6;
++  }
+   const metrics = getFontMetrics(fontFamily, fontSize, fontWeight);
+   const lines =
+     typeof text === 'string'
+       ? [text.split('\n').map(line => ({ insert: line }))]
+-      : deltaInsertsToChunks(wrapTextDeltas(text, font, w - horPadding * 2));
+-  const horOffset = horizontalOffset(model.w, model.textAlign, horPadding);
++      : deltaInsertsToChunks(
++          wrapTextDeltas(text, font, textAreaWidth - horPadding * 2)
++        );
++  const horOffset = horizontalOffset(
++    textAreaWidth,
++    model.textAlign,
++    horPadding
++  );
+   const vertOffset =
+     verticalOffset(
+       lines,
+       lineHeight + lineGap,
+-      h,
+-      textVerticalAlign,
++      textAreaHeight,
++      effectiveVerticalAlign,
+       verticalPadding
+     ) +
+     metrics.fontBoundingBoxAscent +
+     lineGap / 2;
+   let maxLineWidth = 0;
+ 
++  if (model.shapeType === ShapeType.HorizontalContainer) {
++    const titleWidth = Math.min(CONTAINER_TITLE_SIZE, w);
++    const rotatedWidth = h;
++    const rotatedHeight = titleWidth;
++    const rotatedHorOffset = horizontalOffset(
++      rotatedWidth,
++      model.textAlign,
++      horPadding
++    );
++    const rotatedVertOffset =
++      verticalOffset(
++        lines,
++        lineHeight + lineGap,
++        rotatedHeight,
++        TextVerticalAlign.Center,
++        verticalPadding
++      ) +
++      metrics.fontBoundingBoxAscent +
++      lineGap / 2;
++    const baseX = -rotatedWidth / 2;
++    const baseY = -rotatedHeight / 2;
++    const centerX = titleWidth / 2;
++    const centerY = h / 2;
++
++    ctx.save();
++    ctx.translate(centerX, centerY);
++    ctx.scale(scaleX, scaleY);
++    if (rotation) {
++      ctx.rotate((rotation * Math.PI) / 180);
++    }
++    ctx.rotate(-Math.PI / 2);
++    // Text flip tweak helpers (uncomment to experiment):
++    if (flipX) {
++      ctx.scale(-1, 1); // horizontal flip
++      ctx.rotate(Math.PI);
++    }
++    if (flipY) {
++      ctx.scale(1, -1); // vertical flip
++      ctx.rotate(Math.PI); // 180deg rotation
++    }
++    ctx.font = font;
++    ctx.fillStyle = color;
++    ctx.textAlign = textAlign;
++    ctx.textBaseline = 'alphabetic';
++
++    for (const [lineIndex, line] of lines.entries()) {
++      for (const delta of line) {
++        const str = delta.insert;
++        const rtl = isRTL(str);
++        const shouldTemporarilyAttach = rtl && !ctx.canvas.isConnected;
++        if (shouldTemporarilyAttach) {
++          document.body.append(ctx.canvas);
++        }
++
++        if (ctx.canvas.dir !== (rtl ? 'rtl' : 'ltr')) {
++          ctx.canvas.setAttribute('dir', rtl ? 'rtl' : 'ltr');
++        }
++
++        ctx.fillText(
++          str,
++          baseX + rotatedHorOffset + 0.5,
++          baseY + lineIndex * lineHeight + rotatedVertOffset
++        );
++
++        maxLineWidth = Math.max(maxLineWidth, getLineWidth(str, font));
++
++        if (shouldTemporarilyAttach) {
++          ctx.canvas.remove();
++        }
++      }
++    }
++
++    const bound = new Bound(x, y, titleWidth, h) as IBound;
++    bound.rotate = model.rotate ?? 0;
++    model.textBound = bound;
++    ctx.restore();
++    return;
++  }
++
+   ctx.save();
+-  if (flipX || flipY) {
++  if (scaleX !== 1 || scaleY !== 1 || rotation) {
+     ctx.translate(w / 2, h / 2);
+-    ctx.scale(flipX ? -1 : 1, flipY ? -1 : 1);
++    ctx.scale(scaleX, scaleY);
++    if (rotation) {
++      ctx.rotate((rotation * Math.PI) / 180);
++    }
+     ctx.translate(-w / 2, -h / 2);
+   }
+-
+   ctx.font = font;
+   ctx.fillStyle = color;
+   ctx.textAlign = textAlign;
+@@ -254,8 +437,8 @@ function renderText(
+       ctx.fillText(
+         str,
+         // 0.5 is the dom editor padding to make the text align with the DOM text
+-        horOffset + 0.5,
+-        lineIndex * lineHeight + vertOffset
++        horOffset + 0.5 + textOffsetX,
++        lineIndex * lineHeight + vertOffset + textOffsetY
+       );
+ 
+       maxLineWidth = Math.max(maxLineWidth, getLineWidth(str, font));
+@@ -281,7 +464,7 @@ function renderText(
+     lineHeight * lines.length
+   ) as IBound;
+ 
+-  bound.rotate = model.rotate ?? 0;
++  bound.rotate = (model.rotate ?? 0) + (model.textRotate ?? 0);
+   model.textBound = bound;
+   ctx.restore();
+ }
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/mindmap-branch.ts
 new file mode 100644
 index 0000000000..b4391ae32b
@@ -276,7 +559,7 @@ index 0000000000..b4391ae32b
 +  }
 +}
 diff --git a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
-index 4bb9924f85..609a1ba4f4 100644
+index 4e6b41c966..124de3428b 100644
 --- a/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
 +++ b/blocksuite/affine/gfx/shape/src/element-renderer/shape/utils.ts
 @@ -15,7 +15,7 @@ import type {
@@ -334,7 +617,7 @@ index 4bb9924f85..609a1ba4f4 100644
        drawEllipse(ctx, 0, 0, w, h);
        break;
      case 'triangle':
-@@ -243,6 +250,26 @@ export function drawGeneralShape(
+@@ -235,6 +242,26 @@ export function drawGeneralShape(
  
    ctx.fill();
    ctx.stroke();
@@ -830,27 +1113,146 @@ index ade802b961..f8fb511ae4 100644
        };
      },
 diff --git a/blocksuite/affine/gfx/shape/src/shape-tool.ts b/blocksuite/affine/gfx/shape/src/shape-tool.ts
-index 748d04102d..37c702b8d7 100644
+index a9a85d497c..37c702b8d7 100644
 --- a/blocksuite/affine/gfx/shape/src/shape-tool.ts
 +++ b/blocksuite/affine/gfx/shape/src/shape-tool.ts
-@@ -8,7 +8,6 @@ import type { ShapeElementModel, ShapeName } from '@blocksuite/affine-model';
+@@ -6,10 +6,11 @@ import {
+ } from '@blocksuite/affine-block-surface';
+ import type { ShapeElementModel, ShapeName } from '@blocksuite/affine-model';
  import {
-   COLLAPSIBLE_CONTAINER_SHAPES,
++  COLLAPSIBLE_CONTAINER_SHAPES,
    DefaultTheme,
 -  getShapeRadius,
    getShapeType,
    ShapeType,
-   TextVerticalAlign,
-@@ -112,8 +111,6 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
++  TextVerticalAlign,
+ } from '@blocksuite/affine-model';
+ import {
+   EditPropsStore,
+@@ -32,6 +33,7 @@ import { ShapeOverlay } from './overlay/shape-overlay.js';
+ 
+ export type ShapeToolOption = {
+   shapeName: ShapeName;
++  stencilName?: string;
+ };
+ 
+ export class ShapeTool extends BaseTool<ShapeToolOption> {
+@@ -65,24 +67,57 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+     height: number
+   ): string {
+     const { viewport } = this.gfx;
+-    const { shapeName } = this.activatedOption;
+-    const attributes = this._getShapeAttributes(shapeName);
++    const { shapeName, stencilName } = this.activatedOption;
++    const propsStore = this.std.get(EditPropsStore);
++    const attributes =
++      propsStore.lastProps$.value[`shape:${shapeName}`] ??
++      propsStore.lastProps$.value['shape:rect'];
+ 
+     if (shapeName === 'roundedRect' || shapeName === ShapeType.Rect) {
+       width += 40;
+     }
++
++    const shapeType = getShapeType(shapeName);
++    if (width === SHAPE_OVERLAY_WIDTH && height === SHAPE_OVERLAY_HEIGHT) {
++      if (
++        shapeType === ShapeType.Container ||
++        shapeType === ShapeType.VerticalContainer ||
++        shapeType === ShapeType.HorizontalContainer
++      ) {
++        width = 400;
++        height = 400;
++      }
++      if (
++        shapeType === ShapeType.MindmapCentralIdea ||
++        shapeType === ShapeType.MindmapSubTopic ||
++        shapeType === ShapeType.MindmapSquare
++      ) {
++        width = 200;
++        height = 80;
++      }
++      if (shapeType === ShapeType.MindmapBranch) {
++        width = 200;
++        height = 32;
++      }
++    }
+     // create a shape block when drag start
+     const [modelX, modelY] = viewport.toModelCoord(e.point.x, e.point.y);
+     const bound = new Bound(modelX, modelY, width, height);
+ 
++    const isMindmapSubTopic = shapeType === ShapeType.MindmapSubTopic;
++    const isMindmapBranch = shapeType === ShapeType.MindmapBranch;
++
+     const id = this.gfx.surface!.addElement({
        type: CanvasElementType.SHAPE,
-       shapeType,
+-      shapeType: getShapeType(shapeName),
++      shapeType,
        xywh: bound.serialize(),
+-      radius: attributes.radius,
 -      flipX: false,
 -      flipY: false,
-       radius: isMindmapSubTopic ? 0.5 : attributes.radius,
-       stencilName,
-       filled: isMindmapBranch
-@@ -308,22 +305,6 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+-      filled: attributes.filled,
++      radius: isMindmapSubTopic ? 0.5 : attributes.radius,
++      stencilName,
++      filled: isMindmapBranch
++        ? false
++        : shapeName === ShapeType.DrawioStencil
++          ? true
++          : attributes.filled,
+       fillColor: attributes.fillColor,
+       gradientFinal: attributes.gradientFinal,
+       gradientDirection: attributes.gradientDirection,
+@@ -93,6 +128,12 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+       roughness: attributes.roughness,
+     });
+ 
++    if (COLLAPSIBLE_CONTAINER_SHAPES.has(shapeType)) {
++      this.gfx.surface!.updateElement(id, {
++        textVerticalAlign: TextVerticalAlign.Top,
++      });
++    }
++
+     this.std.getOptional(TelemetryProvider)?.track('CanvasElementAdded', {
+       control: 'canvas:draw',
+       page: 'whiteboard editor',
+@@ -218,8 +259,11 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+     this.clearOverlay();
+     if (this._disableOverlay) return;
+     const options = SHAPE_OVERLAY_OPTIONS;
+-    const { shapeName } = this.activatedOption;
+-    const attributes = this._getShapeAttributes(shapeName);
++    const { shapeName, stencilName } = this.activatedOption;
++    const propsStore = this.std.get(EditPropsStore);
++    const attributes =
++      propsStore.lastProps$.value[`shape:${shapeName}`] ??
++      propsStore.lastProps$.value['shape:rect'];
+ 
+     options.stroke = this.std
+       .get(ThemeProvider)
+@@ -243,11 +287,17 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
+       default:
+         options.strokeLineDash = [];
+     }
+-    this._shapeOverlay = new ShapeOverlay(this.gfx, shapeName, options, {
+-      shapeStyle: attributes.shapeStyle,
+-      fillColor: attributes.fillColor,
+-      strokeColor: attributes.strokeColor,
+-    });
++    this._shapeOverlay = new ShapeOverlay(
++      this.gfx,
++      shapeName,
++      options,
++      {
++        shapeStyle: attributes.shapeStyle,
++        fillColor: attributes.fillColor,
++        strokeColor: attributes.strokeColor,
++      },
++      stencilName
++    );
+     this._surfaceComponent?.renderer.addOverlay(this._shapeOverlay);
+   }
+ 
+@@ -255,23 +305,6 @@ export class ShapeTool extends BaseTool<ShapeToolOption> {
      this.clearOverlay();
    }
  
@@ -870,6 +1272,7 @@ index 748d04102d..37c702b8d7 100644
 -      roughness: rectProps?.roughness,
 -    };
 -  }
+-
    override dragEnd() {
      if (this._disableOverlay) return;
      if (this._draggingElement) {
@@ -1039,19 +1442,24 @@ index 5457f5a402..9d7ab69a78 100644
        .enum(['affine:embed-linked-doc', 'affine:embed-synced-doc'])
        .default('affine:embed-synced-doc'),
 diff --git a/blocksuite/affine/shared/src/utils/zod-schema.ts b/blocksuite/affine/shared/src/utils/zod-schema.ts
-index 3dc7ae3592..7b76305a04 100644
+index d9430602f8..cc157d24d1 100644
 --- a/blocksuite/affine/shared/src/utils/zod-schema.ts
 +++ b/blocksuite/affine/shared/src/utils/zod-schema.ts
-@@ -168,6 +168,7 @@ const ShapeObject = {
-   collapsedSize: z.tuple([z.number(), z.number()]).optional(),
-   expandedSize: z.tuple([z.number(), z.number()]).optional(),
-   collapseProxyId: z.string().nullable().optional(),
+@@ -148,6 +148,12 @@ const ShapeObject = {
+   textHorizontalAlign: TextAlignSchema.optional(),
+   textVerticalAlign: TextVerticalAlignSchema.optional(),
+   roughness: z.number(),
++  stencilName: z.string().optional(),
++  collapsed: z.boolean().optional(),
++  collapsedSize: z.tuple([z.number(), z.number()]).optional(),
++  expandedSize: z.tuple([z.number(), z.number()]).optional(),
++  collapseProxyId: z.string().nullable().optional(),
 +  mindmapNextPaletteIndex: z.number().int().nonnegative().optional(),
  };
  
  export const ShapeSchema = z.object(ShapeObject).default(DEFAULT_SHAPE);
 diff --git a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
-index e6abb5b83c..16581e6153 100644
+index 3c7a8bf8db..838ba7a0a6 100644
 --- a/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 +++ b/blocksuite/affine/widgets/edgeless-selected-rect/src/edgeless-auto-complete.ts
 @@ -20,6 +20,7 @@ import type {
@@ -1062,17 +1470,6 @@ index e6abb5b83c..16581e6153 100644
    ConnectorMode,
    DEFAULT_NOTE_HEIGHT,
    DefaultTheme,
-@@ -35,8 +36,8 @@ import {
- import type { SelectedRect } from '@blocksuite/affine-shared/types';
- import { handleNativeRangeAtPoint } from '@blocksuite/affine-shared/utils';
- import { DisposableGroup } from '@blocksuite/global/disposable';
--import type { Bound, IVec } from '@blocksuite/global/gfx';
--import { PointLocation, Vec } from '@blocksuite/global/gfx';
-+import { type Bound, type IVec, PointLocation } from '@blocksuite/global/gfx';
-+import { Vec } from '@blocksuite/global/gfx';
- import { WithDisposable } from '@blocksuite/global/lit';
- import {
-   ArrowUpBigIcon,
 @@ -58,6 +59,7 @@ import { styleMap } from 'lit/directives/style-map.js';
  
  import { EdgelessAutoCompletePanel } from './auto-complete-panel.js';
@@ -1081,20 +1478,7 @@ index e6abb5b83c..16581e6153 100644
  import {
    createEdgelessElement,
    Direction,
-@@ -222,11 +224,10 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-         if (!this.canShowAutoComplete) return;
-         this._isMoving = true;
-         const { startPosition } = getPosition(type);
--        const sourcePosition = this._mapPositionByFlip(startPosition, this.current);
-         connector = this._addConnector(
-           {
-             id: this.current.id,
--            position: sourcePosition,
-+            position: this._mapPositionByFlip(startPosition, this.current),
-           },
-           {
-             position: point,
-@@ -273,10 +274,18 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -274,10 +276,18 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      return String(element.shapeType).startsWith('flowchart');
    }
  
@@ -1113,7 +1497,7 @@ index e6abb5b83c..16581e6153 100644
    private _openFlowchartPanel(direction: Direction) {
      if (!(this.current instanceof ShapeElementModel)) return;
      this._removeFlowchartPanel();
-@@ -287,6 +296,16 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -288,6 +298,16 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      this.edgeless.append(panel);
    }
  
@@ -1130,76 +1514,7 @@ index e6abb5b83c..16581e6153 100644
    get canShowAutoComplete() {
      const { current } = this;
      return isShape(current) || isNoteBlock(current);
-@@ -357,15 +376,9 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-   ) {
-     const startBound = this.current.elementBound;
-     const { startPosition, endPosition } = getPosition(type);
--    const startConnectionPosition = this._mapPositionByFlip(
--      startPosition,
--      curShape
--    );
-     const nextShape = {
-       xywh: nextBound.serialize(),
-       rotate: curShape.rotate,
--      flipX: curShape.flipX,
--      flipY: curShape.flipY,
-       shapeType: curShape.shapeType,
-       getLineIntersections(start: IVec, end: IVec) {
-         return shapeMethods[this.shapeType].getLineIntersections(
-@@ -381,6 +394,10 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-         );
-       },
-     } as ShapeElementModel;
-+    const startConnectionPosition = this._mapPositionByFlip(
-+      startPosition,
-+      this.current
-+    );
-     const endConnectionPosition = this._mapPositionByFlip(endPosition, nextShape);
-     const startPoint = PointLocation.fromVec(
-       startBound.getRelativePoint(startConnectionPosition)
-@@ -398,13 +415,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-   }
- 
-   private _mapPositionByFlip(
--    position: Connection['position'],
--    shape: { flipX?: boolean; flipY?: boolean }
--  ): Connection['position'] {
--    return [
--      shape.flipX ? 1 - position[0] : position[0],
--      shape.flipY ? 1 - position[1] : position[1],
--    ];
-+    position: [number, number],
-+    shape: Pick<ShapeElementModel, 'flipX' | 'flipY'>
-+  ): [number, number] {
-+    const [x, y] = position;
-+    return [shape.flipX ? 1 - x : x, shape.flipY ? 1 - y : y];
-   }
- 
-   private _computeNextBound(type: Direction) {
-@@ -463,17 +478,17 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
-     if (!id) return;
-     if (isShape(this.current)) {
-       const { startPosition, endPosition } = getPosition(type);
--      const sourcePosition = this._mapPositionByFlip(startPosition, this.current);
--      const targetShape = this.crud.getElementById(id) as ShapeElementModel;
--      const targetPosition = this._mapPositionByFlip(endPosition, targetShape);
-       this._addConnector(
-         {
-           id: this.current.id,
--          position: sourcePosition,
-+          position: this._mapPositionByFlip(startPosition, this.current),
-         },
-         {
-           id,
--          position: targetPosition,
-+          position: this._mapPositionByFlip(
-+            endPosition,
-+            this.crud.getElementById(id) as ShapeElementModel
-+          ),
-         }
-       );
- 
-@@ -806,6 +821,65 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -811,6 +831,65 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      });
    }
  
@@ -1265,7 +1580,7 @@ index e6abb5b83c..16581e6153 100644
    private _showNextShape(
      current: ShapeElementModel,
      bound: Bound,
-@@ -843,6 +917,7 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -848,6 +927,7 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
          this._autoCompleteOverlay.linePoints = [];
          this._autoCompleteOverlay.renderShape = null;
          this._removeFlowchartPanel();
@@ -1273,7 +1588,7 @@ index e6abb5b83c..16581e6153 100644
        })
      );
  
-@@ -902,6 +977,8 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -907,6 +987,8 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
  
      const isShape = this.current instanceof ShapeElementModel;
      const isMindMap = this.current.group instanceof MindmapElementModel;
@@ -1282,7 +1597,7 @@ index e6abb5b83c..16581e6153 100644
      const isFlowchart =
        isShape && this._isFlowchartShape(this.current as ShapeElementModel);
  
-@@ -926,9 +1003,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
+@@ -931,9 +1013,11 @@ export class EdgelessAutoComplete extends WithDisposable(LitElement) {
      >
        ${isMindMap
          ? this._renderMindMapButtons()
@@ -1720,7 +2035,7 @@ index 0000000000..442ab010c4
 +  }
 +}
 diff --git a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
-index 33d19b8869..1b00f92a1b 100644
+index 6de08574fa..e42122c0d4 100644
 --- a/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
 +++ b/packages/frontend/core/src/desktop/dialogs/setting/general-setting/editor/edgeless/shape.tsx
 @@ -53,6 +53,19 @@ enum ShapeTextFontSize {
@@ -1743,7 +2058,7 @@ index 33d19b8869..1b00f92a1b 100644
  
  export const ShapeSettings = () => {
    const t = useI18n();
-@@ -211,6 +224,68 @@ export const ShapeSettings = () => {
+@@ -203,6 +216,68 @@ export const ShapeSettings = () => {
      [editorSetting]
    );
  
@@ -1812,7 +2127,7 @@ index 33d19b8869..1b00f92a1b 100644
    const shapes = useMemo<RadioItem[]>(
      () => [
        {
-@@ -654,6 +729,25 @@ export const ShapeSettings = () => {
+@@ -646,6 +721,25 @@ export const ShapeSettings = () => {
            onChange={setLibraryShapesVisibility}
          />
        </SettingRow>

@@ -1,0 +1,66 @@
+From 5a3d1f6fc49a6b41a18a3aa0f8682f598f117dcd Mon Sep 17 00:00:00 2001
+From: Patch Test <patch-test@local>
+Date: Sun, 10 May 2026 05:18:36 -0600
+Subject: [PATCH 2/2] 12 properties menu, performance optimisation post
+ advanced shapes
+
+---
+ .../configs/toolbar/properties-modal.ts       | 34 +++++++++++--------
+ 1 file changed, 19 insertions(+), 15 deletions(-)
+
+diff --git a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/properties-modal.ts b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/properties-modal.ts
+index cda35e02c2..50d62cac96 100644
+--- a/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/properties-modal.ts
++++ b/blocksuite/affine/blocks/root/src/edgeless/configs/toolbar/properties-modal.ts
+@@ -759,6 +759,8 @@ export class PropertiesModal extends SignalWatcher(WithDisposable(LitElement)) {
+     const gradientColor = model.gradientFinal ?? model.fillColor;
+     const textValue = model.text?.toString() ?? '';
+     const shadowEnabled = Boolean(model.shadow);
++    const showStencilSelector =
++      model.shapeType === ShapeType.DrawioStencil || Boolean(model.stencilName);
+     const shadowValue = model.shadow ?? {
+       blur: 4,
+       offsetX: 0,
+@@ -916,22 +918,24 @@ export class PropertiesModal extends SignalWatcher(WithDisposable(LitElement)) {
+             model.lockAspectRatio ?? false,
+             value => this._updateProperty('lockAspectRatio', value)
+           )}
+-          ${this._renderSelectRow(
+-            'Stencil name',
+-            model.stencilName ?? 'none',
+-            [
+-              { value: 'none', label: 'None' },
+-              ...STENCIL_SHAPE_NAMES.map(name => ({
+-                value: name,
+-                label: name,
+-              })),
+-            ],
+-            value =>
+-              this._updateProperty(
+-                'stencilName',
+-                value === 'none' ? undefined : value
++          ${showStencilSelector
++            ? this._renderSelectRow(
++                'Stencil name',
++                model.stencilName ?? 'none',
++                [
++                  { value: 'none', label: 'None' },
++                  ...STENCIL_SHAPE_NAMES.map(name => ({
++                    value: name,
++                    label: name,
++                  })),
++                ],
++                value =>
++                  this._updateProperty(
++                    'stencilName',
++                    value === 'none' ? undefined : value
++                  )
+               )
+-          )}
++            : null}
+           ${this._renderCheckboxRow('Shadow', shadowEnabled, value =>
+             this._updateProperty('shadow', value ? shadowValue : null)
+           )}
+-- 
+2.53.0
+
